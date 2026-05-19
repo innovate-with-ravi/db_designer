@@ -1,0 +1,46 @@
+
+
+### **1\. The Route Map (Next.js App Router)**
+
+Keep the page structure lean. You only need three main views.
+
+* app/page.tsx: **Landing Page.** Simple hero section explaining the tool, with a "Sign in with Google" (NextAuth) button.  
+* app/dashboard/page.tsx: **Project Hub.** A grid displaying the user's saved ER diagrams. Includes a "Create New Diagram" button.  
+* app/editor/\[id\]/page.tsx: **The Core App.** The actual workspace containing the full-screen interactive canvas.
+
+### **2\. The Frontend Architecture (React Flow Components)**
+
+This is where the heavy UI logic lives.
+
+* **\<Canvas/\>**: The main React Flow wrapper. Handles the drag-and-drop physics and zooming.  
+* **\<EntityNode/\>**: The custom node we designed.  
+  * *View Mode:* Shows table name and column list.  
+  * *Edit Mode:* Expands into a form. Checks for missing Primary Keys live and highlights inputs in red if empty.  
+* **\<RelationshipEdge/\>**: The custom edge we designed. Renders the 90-degree step line, the center diamond, and the two floating cardinality inputs (1, N, M, etc.).  
+* **\<ValidationSidebar/\>**: Slides out when the user clicks "Generate". Displays global errors (e.g., "Table 'Orders' is completely disconnected").  
+* **\<SqlOutputModal/\>**: A popup window displaying the final, formatted DDL SQL script with a "Copy to Clipboard" button.
+
+### **3\. The State Management (Zustand)**
+
+Your useDiagramStore.ts file will act as the brain, holding:
+
+* nodes: Array of all tables and their attributes.  
+* edges: Array of all lines connecting the tables.  
+* globalErrors: Array of structural errors generated before SQL compilation.
+
+### **4\. The Backend Engine (Next.js API Routes)**
+
+* api/diagrams/route.ts: (GET/POST) Fetches a user's saved diagrams or creates a new one in your MySQL database.  
+* api/diagrams/\[id\]/route.ts: (PUT/DELETE) Auto-saves diagram changes and deletes projects.  
+* api/generate-sql/route.ts: **The Crown Jewel.** This route takes the JSON from Zustand, validates it globally (using Zod), and translates the nodes and edges into a raw SQL string.
+
+### **5\. The Database Schema (MySQL)**
+
+Your own database to save user projects.
+
+* **users**: Managed automatically by NextAuth (id, email, name).  
+* **diagrams**: (id, user\_id, title, updated\_at).  
+* **diagram\_nodes**: (id, diagram\_id, type, label, x\_pos, y\_pos, node\_data\_json).  
+* **diagram\_edges**: (id, diagram\_id, source\_node, target\_node, source\_cardinality, target\_cardinality).
+
+We have our map, our tech stack, and our core logic defined. To kick off the actual development phase, what part of the application do you want to build first: setting up the raw React Flow canvas to get shapes on the screen, or configuring Next.js and NextAuth so we have a secure foundation?
