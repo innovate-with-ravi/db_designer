@@ -6,13 +6,13 @@ const AttributeNode = ({ data }: any) => {
   const [label, setLabel] = useState(data.label);
   const [isEditing, setIsEditing] = useState(false);
 
-  let dynamicStyles = `border-2 border-black`;
+  let dynamicStyles = `border-2 border-black `;
   if (data.attributeType === 'key')
-    dynamicStyles += ` underline decoration-solid`;
+    dynamicStyles += `underline decoration-solid`;
   else if (data.attributeType === 'derived')
-    dynamicStyles += ` border-dashed`;
+    dynamicStyles += `border-dashed`;
   else if (data.attributeType === 'multi-valued')
-    dynamicStyles += ` outline outline-2 outline-offset-2 outline-black`;
+    dynamicStyles += `outline outline-2 outline-offset-2 outline-black`;
 
   return (
     <div

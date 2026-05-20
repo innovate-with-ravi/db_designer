@@ -1,69 +1,94 @@
 "use client";
 
-import React, { useCallback } from 'react';
-import {
-  ReactFlow,
-  Background,
-  Controls,
-  useNodesState, // Replaces standard useState for nodes
-  useEdgesState, // Handles the state of the lines
-  addEdge,       // Helper function to connect handles
-  ConnectionMode
-} from '@xyflow/react';
+import React, { useCallback, useRef } from 'react';
+import { ReactFlow, Background, Controls, ReactFlowProvider, useReactFlow, ConnectionMode } from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
 
+import useDiagramStore from '../../../store/useDiagramStore';
 import EntityNode from '@/app/components/nodes/EntityNode';
 import AttributeNode from '@/app/components/nodes/AttributeNode';
+import Sidebar from '@/app/components/ui/Sidebar';
 
 const nodeTypes = {
   entity: EntityNode,
   attribute: AttributeNode,
 };
 
-const initialNodes = [
-  { id: '1', type: 'entity', position: { x: 250, y: 300 }, data: { label: 'STUDENT' } },
-  { id: '2', type: 'attribute', position: { x: 450, y: 150 }, data: { label: 'roll_no', attributeType: 'key' } },
-  { id: '3', type: 'attribute', position: { x: 250, y: 100 }, data: { label: 'name', attributeType: 'simple' } }
-];
+// We create an inner component to handle the canvas logic so we can use the useReactFlow hook
+function DnDCanvas() {
+  const reactFlowWrapper = useRef<HTMLDivElement>(null);
+  const { nodes, edges, onNodesChange, onEdgesChange, onConnect, addNode } = useDiagramStore();
+  const { screenToFlowPosition } = useReactFlow(); // The magic coordinate math hook!
 
-// Start with no lines drawn
-const initialEdges: any[] = [];
+  const onDragOver = useCallback(
+    (event: React.DragEvent) => {
+      event.preventDefault();
+      event.dataTransfer.dropEffect = 'move';
+    }
+    , []);
 
-export default function EditorPage() {
-  // 1. Swap useState for React Flow's custom hooks
-  const [nodes, setNodes, onNodesChange] = useNodesState(initialNodes);
-  const [edges, setEdges, onEdgesChange] = useEdgesState(initialEdges);
+  const onDrop = useCallback(
+    (event: React.DragEvent) => {
+      event.preventDefault();
 
-  // 2. Create the connection handler
-  // This listens for when you drag a line from a source to a target and officially saves it
-  const onConnect = useCallback(
-    (params/*newEdgeJSON*/: any) => setEdges((eds/*existingEdges*/) => addEdge(params, eds)),
-    [setEdges],/*React's ESLint rules demand that any variable or function declared outside of a useCallback that gets used inside of it (setEdges) must be put in the dependency array [].*/
+      // 1. Get the payload from the mouse pointer
+      const type = event.dataTransfer.getData('application/reactflow/type');
+      const attributeType = event.dataTransfer.getData('application/reactflow/attributeType');
+
+      if (!type) return;
+
+      // 2. Calculate exact canvas coordinates based on zoom and pan
+      const position = screenToFlowPosition({
+        x: event.clientX,
+        y: event.clientY,
+      });
+
+      // 3. Create the new node object
+      const newNode = {
+        id: `node-${Date.now()}`, // Generate a unique ID
+        type,
+        position,
+        data: {
+          label: type === 'entity' ? 'New Entity' : 'new_attr',
+          attributeType: attributeType || 'simple'
+        },
+      };
+
+      // 4. Send it to Zustand!
+      addNode(newNode);
+    },
+    [screenToFlowPosition, addNode],
   );
 
   return (
-    <div className="w-screen h-screen flex">
-      {/* Sidebar Placeholder */}
-      <div className="w-64 bg-gray-100 border-r border-gray-300 p-4">
-        <h2 className="text-lg font-bold">Symbols & Tools</h2>
-        <p className="text-sm text-gray-500 mt-2">Drag and drop coming soon...</p>
-      </div>
+    <div className="flex-1 h-full relative" ref={reactFlowWrapper}>
+      <ReactFlow
+        nodes={nodes}
+        edges={edges}
+        nodeTypes={nodeTypes}
+        onNodesChange={onNodesChange}
+        onEdgesChange={onEdgesChange}
+        onConnect={onConnect}
+        onDrop={onDrop}         // Handle the drop
+        onDragOver={onDragOver} // Allow the drop
+        connectionMode={ConnectionMode.Loose}
+      >
+        <Background />
+        <Controls />
+      </ReactFlow>
+    </div>
+  );
+}
 
-      {/* The Core Canvas Area */}
-      <div className="flex-1 h-full relative">
-        <ReactFlow
-          nodes={nodes}
-          edges={edges} // Pass the edges state
-          nodeTypes={nodeTypes}
-          connectionMode={ConnectionMode.Loose}
-          onNodesChange={onNodesChange} // Fixes the dragging issue
-          onEdgesChange={onEdgesChange} // Allows selecting/deleting lines
-          onConnect={onConnect}         // Fixes the connecting issue
-        >
-          <Background />
-          <Controls />
-        </ReactFlow>
-      </div>
+// Main page wrapper
+export default function EditorPage() {
+  return (
+    <div className="w-screen h-screen flex overflow-hidden">
+      <Sidebar />
+      {/* We wrap the canvas in the Provider so it can access the math hooks (ReactFlowHooks) */}
+      <ReactFlowProvider>
+        <DnDCanvas />
+      </ReactFlowProvider>
     </div>
   );
 }
