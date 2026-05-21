@@ -8,6 +8,7 @@ import useDiagramStore from '../../../store/useDiagramStore';
 import EntityNode from '@/app/components/nodes/EntityNode';
 import AttributeNode from '@/app/components/nodes/AttributeNode';
 import Sidebar from '@/app/components/ui/Sidebar';
+import PropertiesPanel from '@/app/components/ui/PropertiesPanel';
 
 const nodeTypes = {
   entity: EntityNode,
@@ -60,8 +61,55 @@ function DnDCanvas() {
     },
     [screenToFlowPosition, addNode],
   );
-  console.log(edges);
-  
+
+  const isValidConnection = useCallback((connection: any) => {
+    // 1. Grab the current state (only) directly from the store
+    const { nodes, edges, setEntityExpanded } = useDiagramStore.getState();
+
+    const sourceNode = nodes.find((n) => n.id === connection.source);
+    const targetNode = nodes.find((n) => n.id === connection.target);
+
+    if (!sourceNode || !targetNode) return false;
+
+    // 2. Are they connecting an Entity to an Attribute?
+    const isEntityToAttr =
+      (sourceNode.type === 'entity' && targetNode.type === 'attribute') ||
+      (sourceNode.type === 'attribute' && targetNode.type === 'entity');
+
+    // If it's a relationship between two entities, let it connect instantly!
+    if (!isEntityToAttr) return true;
+
+    // 3. Figure out which one is the Entity
+    const entityId = sourceNode.type === 'entity' ? sourceNode.id : targetNode.id;
+
+    // 4. The Math: Count existing attribute lines
+    let attributeLineCount = 0;
+
+    edges.forEach((edge) => {
+      // Is this edge attached to our entity?
+      if (edge.source === entityId || edge.target === entityId) {
+        // Find the node on the OTHER side of this edge
+        const otherNodeId = edge.source === entityId ? edge.target : edge.source;
+        const otherNode = nodes.find((n) => n.id === otherNodeId);
+
+        // If the other side is an attribute, increase the count
+        if (otherNode?.type === 'attribute') {
+          attributeLineCount++;
+        }
+      }
+    });
+
+    //5. Replace the old trigger with this:
+    if (attributeLineCount >= 4) {
+      setEntityExpanded(entityId); // Set this entity as the ONE active form
+      return false;
+    }
+
+    return true; // Allow the connection
+  }, []);
+
+  console.log("nodes: ", nodes);
+  console.log("edges: ", edges);
 
   return (
     <div className="flex-1 h-full relative" ref={reactFlowWrapper}>
@@ -76,6 +124,7 @@ function DnDCanvas() {
         onDrop={onDrop}         // Handle the drop
         onDragOver={onDragOver} // Allow the drop
         connectionMode={ConnectionMode.Loose}
+        isValidConnection={isValidConnection}
       >
         <Background />
         <Controls />
@@ -93,6 +142,8 @@ export default function EditorPage() {
       <ReactFlowProvider>
         <DnDCanvas />
       </ReactFlowProvider>
+
+      <PropertiesPanel />
     </div>
   );
 }

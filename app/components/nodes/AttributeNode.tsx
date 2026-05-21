@@ -1,10 +1,13 @@
 import React, { useState } from 'react'
 import { Handle, Position } from '@xyflow/react'
+import useDiagramStore from '@/store/useDiagramStore';
 
-const AttributeNode = ({ data }: any) => {
+const AttributeNode = ({ data, id }: any) => {
   // 1. Create a local state to hold the text safely
   const [label, setLabel] = useState(data.label);
   const [isEditing, setIsEditing] = useState(false);
+
+  const { updateNodeData } = useDiagramStore()
 
   let dynamicStyles = `border-2 border-black `;
   if (data.attributeType === 'key')
@@ -27,7 +30,7 @@ const AttributeNode = ({ data }: any) => {
       <Handle type="source" position={Position.Left} id="left" />
 
       {!isEditing ? (
-        <p>{label}</p> // Read from local state
+        <p className='line-clamp-1 text-center'>{label}</p> // Read from local state
       ) : (
         <input
           className='w-20 text-center outline-none bg-transparent' // Tailwind fixes for input styling
@@ -35,6 +38,7 @@ const AttributeNode = ({ data }: any) => {
           autoFocus
           value={label} // Bind to state
           onChange={(e) => setLabel(e.target.value)} // 3. Update state safely
+          onBlur={(e) => { updateNodeData(id, { label: e.target.value }) }}
         />
       )}
     </div>

@@ -1,13 +1,13 @@
 // React Flow requires a specific utility called applyNodeChanges and applyEdgeChanges to handle dragging math when using external state managers.
 
 import { create } from 'zustand';
-import { 
-  Node, 
-  Edge, 
-  Connection, 
-  addEdge, 
-  OnNodesChange, 
-  OnEdgesChange, 
+import {
+  Node,
+  Edge,
+  Connection,
+  addEdge,
+  OnNodesChange,
+  OnEdgesChange,
   OnConnect,
   applyNodeChanges,
   applyEdgeChanges
@@ -22,9 +22,13 @@ interface DiagramState {
   onNodesChange: OnNodesChange;
   onEdgesChange: OnEdgesChange;
   onConnect: OnConnect;
-  
+
   // Custom product actions we will use later
   addNode: (node: Node) => void;
+  updateNodeData: (nodeId: string, newData: any) => void;
+
+  activeExpandedEntityId: string | null;
+  setEntityExpanded: (entityId: string | null) => void;
 }
 
 // 2. Create the actual Zustand store 
@@ -36,6 +40,12 @@ const useDiagramStore = create<DiagramState>((set, get) => ({
     // { id: '3', type: 'attribute', position: { x: 250, y: 100 }, data: { label: 'name', attributeType: 'simple' } }
   ],
   edges: [],
+
+  activeExpandedEntityId: null, // Starts as null
+
+  setEntityExpanded: (entityId: string | null) => {
+    set({ activeExpandedEntityId: entityId }); // Just store the one ID!
+  },
 
   // This handles the drag-and-drop physics automatically
   onNodesChange: (changes) => {
@@ -61,6 +71,14 @@ const useDiagramStore = create<DiagramState>((set, get) => ({
   // Custom action for our future Sidebar
   addNode: (node: Node) => {
     set({ nodes: [...get().nodes, node] });
+  },
+
+  updateNodeData: (nodeId, newData) => {
+    set((state) => ({
+      nodes: state.nodes.map((node) =>
+        node.id === nodeId ? { ...node, data: { ...node.data, ...newData } } : node
+      ),
+    }));
   },
 }));
 
