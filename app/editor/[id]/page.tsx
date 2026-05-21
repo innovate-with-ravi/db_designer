@@ -23,7 +23,8 @@ function DnDCanvas() {
   const onDragOver = useCallback(
     (event: React.DragEvent) => {
       event.preventDefault();
-      event.dataTransfer.dropEffect = 'move';
+
+      event.dataTransfer.dropEffect = 'move';// why & how this works
     }
     , []);
 
@@ -59,6 +60,8 @@ function DnDCanvas() {
     },
     [screenToFlowPosition, addNode],
   );
+  console.log(edges);
+  
 
   return (
     <div className="flex-1 h-full relative" ref={reactFlowWrapper}>
@@ -69,6 +72,7 @@ function DnDCanvas() {
         onNodesChange={onNodesChange}
         onEdgesChange={onEdgesChange}
         onConnect={onConnect}
+
         onDrop={onDrop}         // Handle the drop
         onDragOver={onDragOver} // Allow the drop
         connectionMode={ConnectionMode.Loose}

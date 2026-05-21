@@ -5,13 +5,12 @@ export default function Sidebar() {
     // This function attaches the data to the mouse pointer
     const onDragStart = (event: React.DragEvent, nodeType: string, attributeType?: string) => {
 
-        // 's1',s2 = 's1s2'
         event.dataTransfer.setData('application/reactflow/type', nodeType);
 
         if (attributeType) {
-            event.dataTransfer.setData('application/reactflow/attributeType', attributeType);
+            event.dataTransfer.setData('application/reactflow/attributeType', attributeType);// why & how this works
         }
-        event.dataTransfer.effectAllowed = 'move';
+        event.dataTransfer.effectAllowed = 'move';// why & how this works
     };
 
     return (
