@@ -18,7 +18,7 @@ const nodeTypes = {
 // We create an inner component to handle the canvas logic so we can use the useReactFlow hook
 function DnDCanvas() {
   const reactFlowWrapper = useRef<HTMLDivElement>(null);
-  const { nodes, edges, onNodesChange, onEdgesChange, onConnect, addNode } = useDiagramStore();
+  const { nodes, edges, onNodesChange, onEdgesChange, onConnect, addNode, activeExpandedEntityId, setEntityExpanded } = useDiagramStore();
   const { screenToFlowPosition } = useReactFlow(); // The magic coordinate math hook!
 
   const onDragOver = useCallback(
@@ -104,6 +104,9 @@ function DnDCanvas() {
       setEntityExpanded(entityId); // Set this entity as the ONE active form
       return false;
     }
+
+    if (activeExpandedEntityId != entityId)
+      setEntityExpanded(entityId)
 
     return true; // Allow the connection
   }, []);

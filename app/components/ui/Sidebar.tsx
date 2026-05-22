@@ -8,9 +8,9 @@ export default function Sidebar() {
         event.dataTransfer.setData('application/reactflow/type', nodeType);
 
         if (attributeType) {
-            event.dataTransfer.setData('application/reactflow/attributeType', attributeType);// why & how this works
+            event.dataTransfer.setData('application/reactflow/attributeType', attributeType);
         }
-        event.dataTransfer.effectAllowed = 'move';// why & how this works
+        event.dataTransfer.effectAllowed = 'move';
     };
 
     return (

@@ -14,8 +14,14 @@ export const compress = (nodes: Node[], edges: Edge[]): Entity[] => {
     for (const node of nodes) {
         nodeDirectory[node.id] = node;
 
-        if (node.type == 'entity')
-            compressedEntities[node.id] = { ...node, attributes: [] }
+        if (node.type === 'entity') {
+            compressedEntities[node.id] = {
+                ...node,
+                attributes: [
+                    ...(node.data.hiddenAttributes || []) // BOOM. Hidden attributes instantly compiled.
+                ]
+            }
+        }
     }
 
 
