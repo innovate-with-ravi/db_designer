@@ -3,16 +3,24 @@ import { Handle, Position } from '@xyflow/react'
 import useDiagramStore from '@/store/useDiagramStore';
 
 const EntityNode = ({ data, id }: any) => {
+    console.log(data);
+
     const [label, setLabel] = useState(data.label);
     const [isEditing, setIsEditing] = useState(false);
-    const [showVisualLimit, setShowVisualLimit] = useState(false)
 
     // Pull the specific actions from YOUR global brain
-    const { activeExpandedEntityId, updateNodeData, setEntityExpanded, nodes, edges } = useDiagramStore();
+    const { activeExpandedEntityId, updateNodeData, setEntityExpanded, nodes, edges, showPKExists, setShowPKExists } = useDiagramStore();
 
     useEffect(() => {
         setEntityExpanded(id)// activeEntity when it's loaded into canvas
     }, [])
+
+    useEffect(() => {
+        setTimeout(() => {
+            setShowPKExists(false)
+        }, 1000);
+    }, [showPKExists])
+
 
     // 2. The 80/20 Lightweight Error Check (Runs only when this node updates)
     // memoize the hasError's value & re-calculate/update value only when change occurs in one of : data.hiddenAttributes, visual-attributes(nodes), 
@@ -29,10 +37,12 @@ const EntityNode = ({ data, id }: any) => {
             .map(n => n?.data || {});
 
         const allAttrs = [...hiddenAttrs, ...visualAttrs];// allAttrs is an array of data object of attributes  
-        
+
         // fix this
         // Error Condition 1: No Primary Key found
-        const PK = nodes.find(n => n.id === activeExpandedEntityId)?.data?.primaryKey as string;
+        const PK = nodes.find(n => n.id === id)?.data?.primaryKey as string;
+        console.log("PK:", PK);
+
         if ((!PK || PK.length == 0) && allAttrs.length > 0) return true; // Only warn if they've started adding attributes (i.e. allAttrs.length > 0)
 
         // Error Condition 2: Any attribute is missing a Data Type
@@ -116,6 +126,13 @@ const EntityNode = ({ data, id }: any) => {
                     />
                 )}
             </div>
+
+            {showPKExists && (
+                <div className="absolute bottom-0 ">
+                    PK alredy exists
+                </div>
+            )}
+
         </div>
     )
 }

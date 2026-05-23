@@ -12,6 +12,7 @@ import {
   applyNodeChanges,
   applyEdgeChanges
 } from '@xyflow/react';
+import { boolean } from 'zod';
 
 // 1. Define the TypeScript Interface for our store
 interface DiagramState {
@@ -29,6 +30,8 @@ interface DiagramState {
 
   activeExpandedEntityId: string | null;
   setEntityExpanded: (entityId: string | null) => void;
+  showPKExists: boolean;
+  setShowPKExists: (tf: boolean) => void;
 }
 
 // 2. Create the actual Zustand store 
@@ -42,9 +45,14 @@ const useDiagramStore = create<DiagramState>((set, get) => ({
   edges: [],
 
   activeExpandedEntityId: null, // Starts as null
+  showPKExists: false,
 
   setEntityExpanded: (entityId: string | null) => {
     set({ activeExpandedEntityId: entityId }); // Just store the one ID!
+  },
+
+  setShowPKExists(tf) {
+    set({ showPKExists: tf });
   },
 
   // This handles the drag-and-drop physics automatically

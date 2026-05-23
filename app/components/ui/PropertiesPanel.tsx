@@ -22,6 +22,17 @@ export default function PropertiesPanel() {
 
     const allAttr = [...visualAttributes, ...hiddenAttributes] as any[];
 
+    // Inside PropertiesPanel.tsx (Data Fetching Section)
+
+    // 1. Is there a visual PK physically attached to this entity?
+    const visualKeyNode = visualAttributes.find(attr => attr?.data.attributeType === 'key');
+
+    // 2. Filter hidden attributes (Assuming your hidden attributes might have an 'attributeType' later, 
+    // but for now we just map them since they act as simple attributes by default)
+    const validHiddenAttributes = hiddenAttributes.filter(attr =>
+        attr.attributeType !== 'derived' && attr.attributeType !== 'multi-valued'
+    );
+
     // The Animation Logic: If there is an active ID, sit at x=0. Otherwise, push it 100% off the right edge.
     const transformClass = activeExpandedEntityId ? '' : 'hidden';
 
@@ -31,9 +42,39 @@ export default function PropertiesPanel() {
         >
             {/* We only render the form if an entity is successfully found */}
             {activeEntity && (
-                <div className="p-6 flex-1 flex flex-col overflow-scroll">
+                <div className="p-6 flex-1 flex flex-col overflow-y-auto">
                     <div className="border-b pb-4 mb-4">
                         <h2 className="text-xl font-bold text-gray-800">Table: {activeEntity.data?.label as string}</h2>
+                    </div>
+
+                    <div className="mb-6 p-3 bg-blue-50 border border-blue-100 rounded-md">
+                        <label className="text-xs font-bold text-blue-800 uppercase tracking-wider mb-2 block">
+                            Primary Key 🔑
+                        </label>
+
+                        {visualKeyNode ? (
+                            /* State A: A visual key is attached on the canvas */
+                            <div className="flex items-center gap-2 text-sm font-semibold text-gray-700 bg-white p-2 border border-blue-200 rounded cursor-not-allowed">
+                                <span className="w-2 h-2 rounded-full bg-blue-500"></span>
+                                {visualKeyNode.data.label as any || 'Unnamed Key Node'}
+                                <span className="text-xs text-gray-400 font-normal ml-auto italic">(Canvas Node)</span>
+                            </div>
+                        ) : (
+                            /* State B: No visual key. Show the dropdown of hidden attributes! */
+                            <select
+                                className="w-full p-2 border border-blue-200 rounded outline-none bg-white text-sm focus:border-blue-500"
+                                // We read/write a single string directly to the active entity's data!
+                                value={activeEntity.data.primaryKey as string || ''}
+                                onChange={(e) => updateNodeData(activeEntity.id, { primaryKey: e.target.value })}
+                            >
+                                <option value="">-- Select a hidden attribute --</option>
+                                {validHiddenAttributes.map((attr, index) => (
+                                    <option key={index} value={attr.name}>
+                                        {attr.name}
+                                    </option>
+                                ))}
+                            </select>
+                        )}
                     </div>
 
                     {/* The "Smart Row" Prototype (You can have Copilot style this heavily later) */}

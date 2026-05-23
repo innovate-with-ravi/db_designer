@@ -9,6 +9,7 @@ import EntityNode from '@/app/components/nodes/EntityNode';
 import AttributeNode from '@/app/components/nodes/AttributeNode';
 import Sidebar from '@/app/components/ui/Sidebar';
 import PropertiesPanel from '@/app/components/ui/PropertiesPanel';
+import { transcode } from 'buffer';
 
 const nodeTypes = {
   entity: EntityNode,
@@ -18,7 +19,7 @@ const nodeTypes = {
 // We create an inner component to handle the canvas logic so we can use the useReactFlow hook
 function DnDCanvas() {
   const reactFlowWrapper = useRef<HTMLDivElement>(null);
-  const { nodes, edges, onNodesChange, onEdgesChange, onConnect, addNode, activeExpandedEntityId, setEntityExpanded } = useDiagramStore();
+  const { nodes, edges, onNodesChange, onEdgesChange, onConnect, addNode, activeExpandedEntityId, setEntityExpanded, setShowPKExists } = useDiagramStore();
   const { screenToFlowPosition } = useReactFlow(); // The magic coordinate math hook!
 
   const onDragOver = useCallback(
@@ -63,7 +64,7 @@ function DnDCanvas() {
   );
 
   const isValidConnection = useCallback((connection: any) => {
-    // 1. Grab the current state (only) directly from the store
+    // 1. Grab the current state (only using useDiagramStore.getState()) directly from the store
     const { nodes, edges, setEntityExpanded } = useDiagramStore.getState();
 
     const sourceNode = nodes.find((n) => n.id === connection.source);
@@ -84,6 +85,30 @@ function DnDCanvas() {
 
     // 3. Figure out which one is the Entity
     const entityId = sourceNode.type === 'entity' ? sourceNode.id : targetNode.id;
+
+    // 1. Is the node they are dragging a "Key" attribute?
+    const draggingNode = sourceNode.id === entityId ? targetNode : sourceNode;
+    const isDraggingKey = draggingNode.data?.attributeType === 'key';
+
+    if (isDraggingKey) {
+      // 2. Check if the entity already has a Key connected
+      const hasExistingKey = edges.some((edge) => {
+        if (edge.source !== entityId && edge.target !== entityId) return false;
+
+        const otherNodeId = edge.source === entityId ? edge.target : edge.source;
+        const otherNode = nodes.find((n) => n.id === otherNodeId);
+
+        return otherNode?.data?.attributeType === 'key';
+      });
+
+      // 3. Block it if a key already exists!
+
+      if (hasExistingKey) {
+        setShowPKExists(true)
+        return false;
+      }
+    }
+    // SHOW PK ALREADY EXISTS in entityNode when user tries to add new PK oval & it fails
 
     // 4. The Math: Count existing attribute lines
     let attributeLineCount = 0;
