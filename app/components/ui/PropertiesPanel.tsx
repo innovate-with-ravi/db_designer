@@ -18,12 +18,12 @@ export default function PropertiesPanel() {
         .filter(node => node?.type === 'attribute'); // Ensure we only get attributes, not other entities
 
     // Safely grab the hidden attributes
-    const hiddenAttributes = activeEntity?.data?.hiddenAttributes || [];
+    const hiddenAttributes = (activeEntity?.data?.hiddenAttributes as any[]) || [];
+
+    const allAttr = [...visualAttributes, ...hiddenAttributes] as any[];
 
     // The Animation Logic: If there is an active ID, sit at x=0. Otherwise, push it 100% off the right edge.
     const transformClass = activeExpandedEntityId ? '' : 'hidden';
-
-
 
     return (
         <div
@@ -31,7 +31,7 @@ export default function PropertiesPanel() {
         >
             {/* We only render the form if an entity is successfully found */}
             {activeEntity && (
-                <div className="p-6 flex-1 flex flex-col">
+                <div className="p-6 flex-1 flex flex-col overflow-scroll">
                     <div className="border-b pb-4 mb-4">
                         <h2 className="text-xl font-bold text-gray-800">Table: {activeEntity.data?.label as string}</h2>
                     </div>
@@ -43,6 +43,7 @@ export default function PropertiesPanel() {
                             <p className="font-semibold">{attr?.data.label as string}</p>
 
                             <select
+                                className={`border p-1 rounded outline-none w-full mb-2 ${!attr?.data?.dataType ? 'border-red-500 bg-red-50' : 'border-gray-300'}`}
                                 value={attr?.data.dataType as string || ''}
                                 onChange={(e) => updateNodeData(attr?.id as string, { dataType: e.target.value })}
                             >
@@ -62,6 +63,82 @@ export default function PropertiesPanel() {
                             )}
                         </div>
                     ))}
+
+                    <h3 className="font-bold text-gray-700 mt-4">Hidden Attributes</h3>
+                    {hiddenAttributes.map((hiddenAttr: any, index: any) => (
+                        <div key={index} className="border p-2 mb-2">
+                            {/* Name Input */}
+                            <input
+                                type="text"
+                                className="border border-gray-300 p-1 rounded outline-none mb-2 w-full"
+                                value={hiddenAttr.name}
+                                onChange={(e) => {
+                                    const newArray = [...hiddenAttributes];
+                                    newArray[index].name = e.target.value;
+                                    updateNodeData(activeEntity.id, { hiddenAttributes: newArray });
+                                }}
+                            />
+
+                            {/* DataType Dropdown */}
+                            <select
+                                className={`border p-1 rounded outline-none w-full mb-2 ${!hiddenAttr.dataType ? 'border-red-500 bg-red-50' : 'border-gray-300'}`}
+                                value={hiddenAttr.dataType || ''}
+                                onChange={(e) => {
+                                    // Replaced updateNodeData with the correct array-copy logic
+                                    const newArray = [...hiddenAttributes];
+                                    newArray[index].dataType = e.target.value;
+                                    updateNodeData(activeEntity.id, { hiddenAttributes: newArray });
+                                }}
+                            >
+                                <option value="">Select Type...</option>
+                                <option value="INT">INT</option>
+                                <option value="VARCHAR">VARCHAR</option>
+                            </select>
+
+                            {/* Size Input */}
+                            {hiddenAttr.dataType === 'VARCHAR' && ( // Removed .data
+                                <input
+                                    type="number"
+                                    className="border border-gray-300 p-1 rounded outline-none w-full"
+                                    placeholder="Size (e.g. 255)"
+                                    value={hiddenAttr.size || ''} // Removed .data
+                                    onChange={(e) => {
+                                        // Replaced updateNodeData with the correct array-copy logic
+                                        const newArray = [...hiddenAttributes];
+                                        newArray[index].size = e.target.value;
+                                        updateNodeData(activeEntity.id, { hiddenAttributes: newArray });
+                                    }}
+                                />
+                            )}
+                        </div>
+                    ))}
+
+                    {/* The Button to Add a New Hidden Attribute */}
+                    <button className="bg-blue-200 text-white px-1 rounded  hover:bg-blue-300 transition"
+                        onClick={() => {
+                            const newArray = [...hiddenAttributes, { name: 'new_column', dataType: '', size: '' }];
+                            updateNodeData(activeEntity.id, { hiddenAttributes: newArray });
+                        }}
+                    >
+                        + Add Hidden Attribute
+                    </button>
+
+                    {/* Select Primary Key */}
+                    {allAttr.length > 0 && (
+                        <select
+                            className={`border p-1 rounded outline-none w-full mb-2 ${!activeEntity.data.primaryKey ? 'border-red-500 bg-red-50' : 'border-gray-300'}`}
+                            value={activeEntity.data.primaryKey as string || ''}
+                            onChange={(e) => updateNodeData(activeExpandedEntityId as string, { primaryKey: e.target.value })}
+                        >
+                            <option value="">Select Primary Key</option>
+                            {
+                                allAttr.map((attr, i) => {
+                                    console.log(attr);
+                                    return <option key={i} value={attr.data?.id || attr.id}>{attr.data?.label || attr.name}</option>
+                                })
+                            }
+                        </select>
+                    )}
 
                     {/* The Action Buttons (Slide the panel out) */}
                     <div className="mt-auto flex gap-3 pt-4 border-t">

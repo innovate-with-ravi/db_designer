@@ -71,6 +71,9 @@ function DnDCanvas() {
 
     if (!sourceNode || !targetNode) return false;
 
+    // save from connecting entity to entity and attribute to attribute
+    if (sourceNode.type == targetNode.type) return false;
+
     // 2. Are they connecting an Entity to an Attribute?
     const isEntityToAttr =
       (sourceNode.type === 'entity' && targetNode.type === 'attribute') ||

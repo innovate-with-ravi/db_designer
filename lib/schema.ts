@@ -1,6 +1,6 @@
 import { z } from 'zod';
 
-// Define the strict rules for a single column
+// Define the strict rules for a single column/attribute
 export const attributeSchema = z.object({
     name: z.string().min(1, { message: "Column name cannot be empty" }),
     dataType: z.string().min(1, { message: "Data type is required" }),
@@ -14,16 +14,30 @@ export const attributeSchema = z.object({
     return true;
 }, { message: "VARCHAR requires a size", path: ["size"] });
 
-// Define the strict rules for a full table
+
+
+// Define the strict rules for a full table/entity
 export const entitySchema = z.object({
     id: z.string(),
     label: z.string().min(1, { message: "Table name is required" }),
-    attributes: z.array(attributeSchema).min(1, { message: "Table must have at least one attribute" }),
+    attributes: z.array(attributeSchema).min(1, { message: "Table must have at least one attribute(PK)" }),
 }).refine((entity) => {
     // Custom Rule: Every table must have exactly one Primary Key
     const pkCount = entity.attributes.filter(attr => attr.isPrimaryKey).length;
-    return pkCount > 0;
-}, { message: "Table must have a Primary Key", path: ["attributes"] });
+    return pkCount == 1;
+}, { message: "Table must have excatly 1 Primary Key", path: ["attributes"] });
 
-// The master schema for the entire generated array
+// The master schema for the entire generated array of entities(compressedEntities)
 export const databaseSchema = z.array(entitySchema);
+
+const dataSchema = z.object({
+    label: z.string(),
+});
+
+// export const nodeSchema = z.object({
+//     id: z.string(),
+//     data: dataSchema,
+// })
+
+// const result = nodeSchema.parse({ id: 'xyz', data: { label: 'ravi' } });
+// console.log(result);
