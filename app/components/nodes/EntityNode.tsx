@@ -9,17 +9,11 @@ const EntityNode = ({ data, id }: any) => {
     const [isEditing, setIsEditing] = useState(false);
 
     // Pull the specific actions from YOUR global brain
-    const { activeExpandedEntityId, updateNodeData, setEntityExpanded, nodes, edges, showPKExists, setShowPKExists } = useDiagramStore();
+    const { activeExpandedEntityId, updateNodeData, setEntityExpanded, nodes, edges } = useDiagramStore();
 
     useEffect(() => {
         setEntityExpanded(id)// activeEntity when it's loaded into canvas
     }, [])
-
-    useEffect(() => {
-        setTimeout(() => {
-            setShowPKExists(false)
-        }, 1000);
-    }, [showPKExists])
 
 
     // 2. The 80/20 Lightweight Error Check (Runs only when this node updates)
@@ -126,12 +120,6 @@ const EntityNode = ({ data, id }: any) => {
                     />
                 )}
             </div>
-
-            {showPKExists && (
-                <div className="absolute bottom-0 ">
-                    PK alredy exists
-                </div>
-            )}
 
         </div>
     )

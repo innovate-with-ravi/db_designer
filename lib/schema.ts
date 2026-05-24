@@ -14,13 +14,14 @@ export const attributeSchema = z.object({
     return true;
 }, { message: "VARCHAR requires a size", path: ["size"] });
 
-
-
-// Define the strict rules for a full table/entity
 export const entitySchema = z.object({
     id: z.string(),
     label: z.string().min(1, { message: "Table name is required" }),
-    attributes: z.array(attributeSchema).min(1, { message: "Table must have at least one attribute(PK)" }),
+
+    // Zod now just looks for your single unified string!
+    primaryKey: z.string().min(1, { message: "Table is missing a Primary Key" }),
+
+    attributes: z.array(attributeSchema).min(1, { message: "Table must have at least one attribute" }),
 }).refine((entity) => {
     // Custom Rule: Every table must have exactly one Primary Key
     const pkCount = entity.attributes.filter(attr => attr.isPrimaryKey).length;

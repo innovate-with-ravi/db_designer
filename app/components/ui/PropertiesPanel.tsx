@@ -25,7 +25,9 @@ export default function PropertiesPanel() {
     // Inside PropertiesPanel.tsx (Data Fetching Section)
 
     // 1. Is there a visual PK physically attached to this entity?
-    const visualKeyNode = visualAttributes.find(attr => attr?.data.attributeType === 'key');
+    const visualKeyNode = visualAttributes.find(attr => attr?.id === activeEntity?.data.primaryKey);
+    console.log("visualKeyNode", visualKeyNode);
+    
 
     // 2. Filter hidden attributes (Assuming your hidden attributes might have an 'attributeType' later, 
     // but for now we just map them since they act as simple attributes by default)
@@ -163,23 +165,6 @@ export default function PropertiesPanel() {
                     >
                         + Add Hidden Attribute
                     </button>
-
-                    {/* Select Primary Key */}
-                    {allAttr.length > 0 && (
-                        <select
-                            className={`border p-1 rounded outline-none w-full mb-2 ${!activeEntity.data.primaryKey ? 'border-red-500 bg-red-50' : 'border-gray-300'}`}
-                            value={activeEntity.data.primaryKey as string || ''}
-                            onChange={(e) => updateNodeData(activeExpandedEntityId as string, { primaryKey: e.target.value })}
-                        >
-                            <option value="">Select Primary Key</option>
-                            {
-                                allAttr.map((attr, i) => {
-                                    console.log(attr);
-                                    return <option key={i} value={attr.data?.id || attr.id}>{attr.data?.label || attr.name}</option>
-                                })
-                            }
-                        </select>
-                    )}
 
                     {/* The Action Buttons (Slide the panel out) */}
                     <div className="mt-auto flex gap-3 pt-4 border-t">

@@ -10,16 +10,21 @@ import AttributeNode from '@/app/components/nodes/AttributeNode';
 import Sidebar from '@/app/components/ui/Sidebar';
 import PropertiesPanel from '@/app/components/ui/PropertiesPanel';
 import { transcode } from 'buffer';
+import RelationshipEdge from '@/app/components/edges/RelationshipEdge';
 
 const nodeTypes = {
   entity: EntityNode,
   attribute: AttributeNode,
 };
 
+const edgeTypes = {
+  relationship: RelationshipEdge,
+};
+
 // We create an inner component to handle the canvas logic so we can use the useReactFlow hook
 function DnDCanvas() {
   const reactFlowWrapper = useRef<HTMLDivElement>(null);
-  const { nodes, edges, onNodesChange, onEdgesChange, onConnect, addNode, activeExpandedEntityId, setEntityExpanded, setShowPKExists } = useDiagramStore();
+  const { nodes, edges, onNodesChange, onEdgesChange, onConnect, addNode } = useDiagramStore();
   const { screenToFlowPosition } = useReactFlow(); // The magic coordinate math hook!
 
   const onDragOver = useCallback(
@@ -63,17 +68,20 @@ function DnDCanvas() {
     [screenToFlowPosition, addNode],
   );
 
+  // State for showing PK exists modal (outside validation logic)
+  const [showPKModal, setShowPKModal] = React.useState(false);
+
   const isValidConnection = useCallback((connection: any) => {
     // 1. Grab the current state (only using useDiagramStore.getState()) directly from the store
-    const { nodes, edges, setEntityExpanded } = useDiagramStore.getState();
+    const { nodes, edges } = useDiagramStore.getState();
 
     const sourceNode = nodes.find((n) => n.id === connection.source);
     const targetNode = nodes.find((n) => n.id === connection.target);
 
     if (!sourceNode || !targetNode) return false;
 
-    // save from connecting entity to entity and attribute to attribute
-    if (sourceNode.type == targetNode.type) return false;
+    // Prevent connecting entity to entity and attribute to attribute
+    if (sourceNode.type == 'attribute' && targetNode.type == 'attribute') return false;
 
     // 2. Are they connecting an Entity to an Attribute?
     const isEntityToAttr =
@@ -86,12 +94,12 @@ function DnDCanvas() {
     // 3. Figure out which one is the Entity
     const entityId = sourceNode.type === 'entity' ? sourceNode.id : targetNode.id;
 
-    // 1. Is the node they are dragging a "Key" attribute?
+    // Is the node they are dragging a "Key" attribute?
     const draggingNode = sourceNode.id === entityId ? targetNode : sourceNode;
     const isDraggingKey = draggingNode.data?.attributeType === 'key';
 
     if (isDraggingKey) {
-      // 2. Check if the entity already has a Key connected
+      // Check if the entity already has a Key connected
       const hasExistingKey = edges.some((edge) => {
         if (edge.source !== entityId && edge.target !== entityId) return false;
 
@@ -101,16 +109,17 @@ function DnDCanvas() {
         return otherNode?.data?.attributeType === 'key';
       });
 
-      // 3. Block it if a key already exists!
-
+      // Block it if a key already exists!
       if (hasExistingKey) {
-        setShowPKExists(true)
+        // Show modal via state instead of calling setShowPKExists here
+        setShowPKModal(true);
+        // Auto-dismiss after 2 seconds
+        setTimeout(() => setShowPKModal(false), 2000);
         return false;
       }
     }
-    // SHOW PK ALREADY EXISTS in entityNode when user tries to add new PK oval & it fails
 
-    // 4. The Math: Count existing attribute lines
+    // 4. Count existing attribute lines
     let attributeLineCount = 0;
 
     edges.forEach((edge) => {
@@ -127,14 +136,12 @@ function DnDCanvas() {
       }
     });
 
-    //5. Replace the old trigger with this:
+    // If limit reached, expand the properties panel for that entity
     if (attributeLineCount >= 4) {
-      setEntityExpanded(entityId); // Set this entity as the ONE active form
+      const { setEntityExpanded } = useDiagramStore.getState();
+      setEntityExpanded(entityId);
       return false;
     }
-
-    if (activeExpandedEntityId != entityId)
-      setEntityExpanded(entityId)
 
     return true; // Allow the connection
   }, []);
@@ -144,10 +151,30 @@ function DnDCanvas() {
 
   return (
     <div className="flex-1 h-full relative" ref={reactFlowWrapper}>
+      {/* PK Exists Modal */}
+      {showPKModal && (
+        <div className="fixed inset-0 flex items-center justify-center z-[100] bg-black/50 pointer-events-none animate-fadeIn">
+          <div className="bg-white rounded-lg shadow-2xl p-6 max-w-sm mx-4 pointer-events-auto">
+            <div className="flex items-center gap-3 mb-4">
+              <span className="text-2xl">⚠️</span>
+              <h3 className="text-lg font-bold text-gray-800">Primary Key Exists</h3>
+            </div>
+            <p className="text-gray-600 mb-4">This entity already has a primary key attribute. Only one primary key is allowed per entity.</p>
+            <button
+              onClick={() => setShowPKModal(false)}
+              className="w-full bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 transition"
+            >
+              Understood
+            </button>
+          </div>
+        </div>
+      )}
+
       <ReactFlow
         nodes={nodes}
         edges={edges}
         nodeTypes={nodeTypes}
+        edgeTypes={edgeTypes}
         onNodesChange={onNodesChange}
         onEdgesChange={onEdgesChange}
         onConnect={onConnect}
@@ -169,7 +196,7 @@ export default function EditorPage() {
   return (
     <div className="w-screen h-screen flex overflow-hidden">
       <Sidebar />
-      {/* We wrap the canvas in the Provider so it can access the math hooks (ReactFlowHooks) */}
+      {/* We wrap the canvas in the Provider so it can access the math hooks (screenToFlowPosition) */}
       <ReactFlowProvider>
         <DnDCanvas />
       </ReactFlowProvider>

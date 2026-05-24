@@ -30,8 +30,7 @@ interface DiagramState {
 
   activeExpandedEntityId: string | null;
   setEntityExpanded: (entityId: string | null) => void;
-  showPKExists: boolean;
-  setShowPKExists: (tf: boolean) => void;
+  updateEdgeData: (edgeId: string, newData: any) => void;
 }
 
 // 2. Create the actual Zustand store 
@@ -45,14 +44,17 @@ const useDiagramStore = create<DiagramState>((set, get) => ({
   edges: [],
 
   activeExpandedEntityId: null, // Starts as null
-  showPKExists: false,
 
   setEntityExpanded: (entityId: string | null) => {
     set({ activeExpandedEntityId: entityId }); // Just store the one ID!
   },
 
-  setShowPKExists(tf) {
-    set({ showPKExists: tf });
+  updateEdgeData: (edgeId, newData) => {
+    set((state) => ({
+      edges: state.edges.map((edge) =>
+        edge.id === edgeId ? { ...edge, data: { ...edge.data, ...newData } } : edge
+      ),
+    }));
   },
 
   // This handles the drag-and-drop physics automatically
@@ -71,9 +73,33 @@ const useDiagramStore = create<DiagramState>((set, get) => ({
 
   // This handles drawing new lines
   onConnect: (connection: Connection) => {
-    set({
-      edges: addEdge(connection, get().edges),
-    });
+    const state = get();
+
+    // Inject the 'type' into the connection parameters before adding it!
+    const newEdge = { ...connection, type: 'relationship' };
+    set({ edges: addEdge(newEdge, state.edges) });
+    // We will eventually need to adjust this so lines going to Attributes are default lines, and lines going to Entities are relationship lines, but let's just get the edge rendering first)
+
+    // 2. Find out what just connected
+    const sourceNode = state.nodes.find(n => n.id === connection.source);
+    const targetNode = state.nodes.find(n => n.id === connection.target);
+
+    if (!sourceNode || !targetNode) return;
+
+    // 3. Is one of them a Key attribute?
+    const isSourceKey = sourceNode.data?.attributeType === 'key';
+    const isTargetKey = targetNode.data?.attributeType === 'key';
+
+    if (isSourceKey || isTargetKey) {
+      // Figure out which one is the Entity and which is the Key
+      const entityId = sourceNode.type === 'entity' ? sourceNode.id : targetNode.id;
+      const keyNodeId = sourceNode.type === 'attribute' ? sourceNode.id : targetNode.id;
+
+      // 4. Fire the update exactly as you designed it!
+      state.updateNodeData(entityId, { primaryKey: keyNodeId });
+
+      // (The only edge-case here is if a user clicks the physical line and hits the "Delete" key. The entity's primaryKey string would still hold the ID of the disconnected node. For this MVP, our compiler can just double-check if the node is still attached. If you want to handle it live later, you would add similar logic to onEdgesChange!)
+    }
   },
 
   // Custom action for our future Sidebar
