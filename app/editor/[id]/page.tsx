@@ -42,6 +42,7 @@ function DnDCanvas() {
       // 1. Get the payload from the mouse pointer
       const type = event.dataTransfer.getData('application/reactflow/type');
       const attributeType = event.dataTransfer.getData('application/reactflow/attributeType');
+      const entityType = event.dataTransfer.getData('application/reactflow/entityType');
 
       if (!type) return;
 
@@ -58,7 +59,8 @@ function DnDCanvas() {
         position,
         data: {
           label: type === 'entity' ? 'New Entity' : 'new_attr',
-          attributeType: attributeType || 'simple'
+          attributeType: attributeType || 'simple',
+          entityType: entityType || 'standard'
         },
       };
 

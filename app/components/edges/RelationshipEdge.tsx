@@ -1,97 +1,109 @@
-import React from 'react';
-import { BaseEdge, EdgeLabelRenderer, getSmoothStepPath, useReactFlow } from '@xyflow/react';
+import React, { useState } from 'react';
+import { BaseEdge, EdgeLabelRenderer, getSmoothStepPath, useReactFlow, Position } from '@xyflow/react';
 import useDiagramStore from '@/store/useDiagramStore';
 
-export default function RelationshipEdge({ id, sourceX, sourceY, targetX, targetY, sourcePosition, targetPosition, style = {}, data, }: any) {
-    const { updateEdgeData } = useDiagramStore();
+const getOffsetPos = (pos: string, x: number, y: number, offset = 25) => {
+    switch (pos) {
+        case Position.Top: return { x, y: y - offset + 10 };
+        case Position.Bottom: return { x, y: y + offset - 10 };
+        case Position.Left: return { x: x - offset, y };
+        case Position.Right: return { x: x + offset, y };
+        default: return { x, y };
+    }
+};
 
-    // 1. Calculate the 90-degree step path and the exact center coordinates (labelX, labelY)
+export default function RelationshipEdge({ id, sourceX, sourceY, targetX, targetY, sourcePosition, targetPosition, style = {}, data }: any) {
+    const { updateEdgeData } = useDiagramStore();
+    const [isEditing, setIsEditing] = useState(false);
+
+    // 1. Add borderRadius to stop weird, crunched bends on vertical alignments
     const [edgePath, labelX, labelY] = getSmoothStepPath({
-        sourceX,
-        sourceY,
-        sourcePosition,
-        targetX,
-        targetY,
-        targetPosition,
+        sourceX, sourceY, sourcePosition, targetX, targetY, targetPosition, borderRadius: 20
     });
 
-    // Default cardinalities if none exist
     const sourceMinCard = data?.sourceMinimumCardinality || '1';
     const sourceMaxCard = data?.sourceMaximumCardinality || 'M';
     const targetMinCard = data?.targetMinimumCardinality || '1';
     const targetMaxCard = data?.targetMaximumCardinality || 'N';
 
+    // 2. Calculate dynamic coordinates for the floating labels
+    const srcLabel = getOffsetPos(sourcePosition, sourceX, sourceY);
+    const tgtLabel = getOffsetPos(targetPosition, targetX, targetY);
+
     return (
         <>
-            {/* 2. Render the actual SVG line */}
             <BaseEdge path={edgePath} style={{ ...style, strokeWidth: 2, stroke: '#374151' }} />
 
-            {/* 3. Render HTML over the line using EdgeLabelRenderer */}
             <EdgeLabelRenderer>
-                {/* src card */}
+                {/* Source Cardinality */}
                 <div
-                    // styling that ReactFlow apply
                     style={{
                         position: 'absolute',
-                        transform: `translate(-50%, -50%) translate(${sourceX + 30}px, ${sourceY}px)`,
-                        pointerEvents: 'all', // Crucial: lets users click the HTML elements
+                        // 3. Use the dynamic coordinates
+                        transform: `translate(-50%, -50%) translate(${srcLabel.x}px, ${srcLabel.y}px)`,
+                        pointerEvents: 'all',
                     }}
-                    className="flex items-center gap-2 bg-white px-2 py-1 rounded shadow-sm border border-gray-300 nodrag nopan"
+                    className="flex items-center gap-1 bg-white px-1 py-0.5 rounded shadow-sm border border-gray-300 nodrag nopan"
                 >
-                    {/* Source Cardinality Toggle */}
-                    <button
-                        className="text-xs font-bold text-blue-600 hover:text-blue-800"
-                        title='src-min-card'
-                        onClick={() => updateEdgeData(id, { sourceMinimumCardinality: sourceMinCard === '1' ? '0' : '1' })}
-                    >
-                        {sourceMinCard}
-                    </button>
-                    <button
-                        className="text-xs font-bold text-blue-600 hover:text-blue-800"
-                        title='src-max-card'
-                        onClick={() => updateEdgeData(id, { sourceMaximumCardinality: sourceMaxCard === '1' ? 'M' : '1' })}
-                    >
+                    <button className="text-[10px] font-bold text-blue-600 hover:text-blue-800" onClick={() => updateEdgeData(id, { sourceMaximumCardinality: sourceMaxCard === '1' ? 'M' : '1' })}>
                         {sourceMaxCard}
                     </button>
+                    <span className="text-[10px] text-gray-400">,</span>
+                    <button className="text-[10px] font-bold text-blue-600 hover:text-blue-800" onClick={() => updateEdgeData(id, { sourceMinimumCardinality: sourceMinCard === '1' ? '0' : '1' })}>
+                        {sourceMinCard}
+                    </button>
+
                 </div>
 
-                {/* relationship*/}
+                {/* The Relationship Diamond */}
                 <div
                     style={{
                         position: 'absolute',
                         transform: `translate(-50%, -50%) translate(${labelX}px, ${labelY}px)`,
-                        pointerEvents: 'all', // Crucial: lets users click the HTML elements
+                        pointerEvents: 'all',
                     }}
-                    className="flex items-center gap-2 px-2 py-1 rounded nodrag nopan"
+                    className="flex items-center justify-center nodrag nopan"
                 >
-                    {/* The Relationship Diamond */}
-                    <div className="w-20 h-20 bg-blue-100 border border-blue-500 rotate-45 mx-1 flex justify-center items-center" title="Relationship">
-                        <p className='-rotate-45'>{data?.label || 'Relationship'/*relationship name*/}</p>
+                    <div
+                        onDoubleClick={(e) => {
+                            e.stopPropagation();
+                            setIsEditing(true);
+                        }}
+                        onBlur={() => setIsEditing(false)}
+                        className="w-16 h-16 bg-blue-50 border-2 border-blue-400 rotate-45 mx-1 flex justify-center items-center shadow-sm cursor-text hover:bg-blue-100 transition-colors pointer-events-auto"
+                    >
+                        <div className="-rotate-45 flex items-center justify-center">
+                            {!isEditing ? (
+                                <p className="text-xs font-bold text-blue-900 text-center leading-tight">
+                                    {data?.label || 'REL'}
+                                </p>
+                            ) : (
+                                <input
+                                    className="w-12 text-[10px] font-bold text-center outline-none bg-transparent"
+                                    type="text"
+                                    autoFocus
+                                    value={data?.label || ''}
+                                    onChange={(e) => updateEdgeData(id, { label: e.target.value })}
+                                />
+                            )}
+                        </div>
                     </div>
                 </div>
 
+                {/* Target Cardinality */}
                 <div
-                    // styling that ReactFlow apply
                     style={{
                         position: 'absolute',
-                        transform: `translate(-50%, -50%) translate(${targetX - 30}px, ${targetY}px)`,
-                        pointerEvents: 'all', // Crucial: lets users click the HTML elements
+                        transform: `translate(-50%, -50%) translate(${tgtLabel.x}px, ${tgtLabel.y}px)`,
+                        pointerEvents: 'all',
                     }}
-                    className="flex items-center gap-2 bg-white px-2 py-1 rounded shadow-sm border border-gray-300 nodrag nopan"
+                    className="flex items-center gap-1 bg-white px-1 py-0.5 rounded shadow-sm border border-gray-300 nodrag nopan"
                 >
-                    {/* Target Cardinality Toggle */}
-                    <button
-                        className="text-xs font-bold text-blue-600 hover:text-blue-800"
-                        title='tgt-min-card'
-                        onClick={() => updateEdgeData(id, { targetMinimumCardinality: targetMinCard === '1' ? '0' : '1' })}
-                    >
+                    <button className="text-[10px] font-bold text-blue-600 hover:text-blue-800" onClick={() => updateEdgeData(id, { targetMinimumCardinality: targetMinCard === '1' ? '0' : '1' })}>
                         {targetMinCard}
                     </button>
-                    <button
-                        title='tgt-max-card'
-                        className="text-xs font-bold text-blue-600 hover:text-blue-800"
-                        onClick={() => updateEdgeData(id, { targetMaximumCardinality: targetMaxCard === '1' ? 'N' : '1' })}
-                    >
+                    <span className="text-[10px] text-gray-400">,</span>
+                    <button className="text-[10px] font-bold text-blue-600 hover:text-blue-800" onClick={() => updateEdgeData(id, { targetMaximumCardinality: targetMaxCard === '1' ? 'N' : '1' })}>
                         {targetMaxCard}
                     </button>
                 </div>

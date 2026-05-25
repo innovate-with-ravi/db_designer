@@ -2,13 +2,14 @@ import React from 'react';
 
 export default function Sidebar() {
 
-    // This function attaches the data to the mouse pointer
-    const onDragStart = (event: React.DragEvent, nodeType: string, attributeType?: string) => {
-
+    // 1. Update the onDragStart function to accept the new parameter
+    const onDragStart = (event: React.DragEvent, nodeType: string, subType?: string) => {
         event.dataTransfer.setData('application/reactflow/type', nodeType);
 
-        if (attributeType) {
-            event.dataTransfer.setData('application/reactflow/attributeType', attributeType);
+        // If it's an attribute, it's an attributeType. If it's an entity, it's an entityType.
+        if (subType) {
+            if (nodeType === 'attribute') event.dataTransfer.setData('application/reactflow/attributeType', subType);
+            if (nodeType === 'entity') event.dataTransfer.setData('application/reactflow/entityType', subType);
         }
         event.dataTransfer.effectAllowed = 'move';
     };
@@ -20,12 +21,23 @@ export default function Sidebar() {
             {/* Entity Draggable */}
             <div>
                 <h3 className="text-sm font-semibold text-gray-500 mb-2">Entities</h3>
+
+                {/* Standard Entity */}
                 <div
-                    className="w-full h-12 border-2 border-black bg-white rounded-md flex items-center justify-center cursor-grab hover:bg-gray-50"
-                    onDragStart={(event) => onDragStart(event, 'entity')}
+                    className="w-full h-12 border-2 border-black bg-white rounded-md flex items-center justify-center cursor-grab hover:bg-gray-50 mb-2"
+                    onDragStart={(event) => onDragStart(event, 'entity', 'standard')}
                     draggable
                 >
                     Entity
+                </div>
+
+                {/* Weak Entity */}
+                <div
+                    className="w-full h-12 border-4 border-double border-black bg-white rounded-md flex items-center justify-center cursor-grab hover:bg-gray-50"
+                    onDragStart={(event) => onDragStart(event, 'entity', 'weak')}
+                    draggable
+                >
+                    Weak Entity
                 </div>
             </div>
 

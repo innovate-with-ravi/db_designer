@@ -80,6 +80,9 @@ const EntityNode = ({ data, id }: any) => {
         }, 300);
     };
 
+    // The dynamic border logic!
+    const isWeak = data.entityType === 'weak';
+    const dynamicBorder = isWeak ? 'border-4 border-double' : 'border-2';
 
     return (
         <div className="relative">
@@ -87,7 +90,7 @@ const EntityNode = ({ data, id }: any) => {
                 onDoubleClick={handleDoubleClick}
                 onBlur={() => setIsEditing(false)}
                 // We add a subtle yellow border if there's an error to draw the eye
-                className={`w-40 h-12 border-2 bg-white rounded-md flex items-center justify-center relative transition-colors ${hasError ? 'border-yellow-500' : 'border-black'}`}
+                className={`w-40 h-12 border-2 ${dynamicBorder} bg-white rounded-md flex items-center justify-center relative transition-colors ${hasError ? 'border-yellow-500' : 'border-black'}`}
                 onClick={handleClick}
                 onFocus={() => { setEntityExpanded(id) }}
             >

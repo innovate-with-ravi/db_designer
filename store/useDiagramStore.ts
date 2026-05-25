@@ -74,17 +74,25 @@ const useDiagramStore = create<DiagramState>((set, get) => ({
   // This handles drawing new lines
   onConnect: (connection: Connection) => {
     const state = get();
+    console.log("connection", connection);
 
-    // Inject the 'type' into the connection parameters before adding it!
-    const newEdge = { ...connection, type: 'relationship' };
-    set({ edges: addEdge(newEdge, state.edges) });
-    // We will eventually need to adjust this so lines going to Attributes are default lines, and lines going to Entities are relationship lines, but let's just get the edge rendering first)
-
-    // 2. Find out what just connected
     const sourceNode = state.nodes.find(n => n.id === connection.source);
     const targetNode = state.nodes.find(n => n.id === connection.target);
 
     if (!sourceNode || !targetNode) return;
+
+    // 1. Determine the Edge Type dynamically!
+    // If both nodes are entities, it's a Relationship Diamond. Otherwise, it's a standard default line.
+    const isEntityToEntity = sourceNode.type === 'entity' && targetNode.type === 'entity';
+    const finalEdgeType = isEntityToEntity ? 'relationship' : 'default';
+
+    // 2. Build the final edge object
+    const newEdge = {
+      ...connection, type: finalEdgeType, data: isEntityToEntity ? { label: 'REL' } : {}
+    };
+
+    // 3. Save it to state
+    set({ edges: addEdge(newEdge, state.edges) });
 
     // 3. Is one of them a Key attribute?
     const isSourceKey = sourceNode.data?.attributeType === 'key';
