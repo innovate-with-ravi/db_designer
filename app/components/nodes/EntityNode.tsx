@@ -3,7 +3,6 @@ import { Handle, Position } from '@xyflow/react'
 import useDiagramStore from '@/store/useDiagramStore';
 
 const EntityNode = ({ data, id }: any) => {
-    console.log(data);
 
     const [label, setLabel] = useState(data.label);
     const [isEditing, setIsEditing] = useState(false);
@@ -35,9 +34,9 @@ const EntityNode = ({ data, id }: any) => {
         // fix this
         // Error Condition 1: No Primary Key found
         const PK = nodes.find(n => n.id === id)?.data?.primaryKey as string;
-        console.log("PK:", PK);
 
         if ((!PK || PK.length == 0) && allAttrs.length > 0) return true; // Only warn if they've started adding attributes (i.e. allAttrs.length > 0)
+        console.log("PK: ", PK)
 
         // Error Condition 2: Any attribute is missing a Data Type
         const hasMissingType = allAttrs.some(attr => !attr.dataType || attr.dataType === '');
@@ -118,7 +117,7 @@ const EntityNode = ({ data, id }: any) => {
                         onChange={(e) => handleLabelChange(e.target.value)}
                         onBlur={(e) => {
                             // The FAANG-level clean update:
-                            updateNodeData(id, { label: e.target.value });
+                            updateNodeData(id, { label: e.target.value.toUpperCase() });
                         }}
                     />
                 )}

@@ -74,7 +74,6 @@ const useDiagramStore = create<DiagramState>((set, get) => ({
   // This handles drawing new lines
   onConnect: (connection: Connection) => {
     const state = get();
-    console.log("connection", connection);
 
     const sourceNode = state.nodes.find(n => n.id === connection.source);
     const targetNode = state.nodes.find(n => n.id === connection.target);

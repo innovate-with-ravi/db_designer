@@ -8,6 +8,7 @@
     "start": "next start",
     "lint": "eslint"
   },
+  "type": "module",
   "dependencies": {
     "@xyflow/react": "^12.10.2",
     "next": "16.2.6",

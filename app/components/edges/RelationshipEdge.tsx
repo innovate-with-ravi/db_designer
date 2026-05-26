@@ -82,8 +82,8 @@ export default function RelationshipEdge({ id, sourceX, sourceY, targetX, target
                                     className="w-12 text-[10px] font-bold text-center outline-none bg-transparent"
                                     type="text"
                                     autoFocus
-                                    value={data?.label || ''}
-                                    onChange={(e) => updateEdgeData(id, { label: e.target.value })}
+                                    value={data?.label as string || ''}
+                                    onChange={(e) => updateEdgeData(id, { label: e.target.value.toUpperCase() })}
                                 />
                             )}
                         </div>

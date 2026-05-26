@@ -26,8 +26,7 @@ export default function PropertiesPanel() {
 
     // 1. Is there a visual PK physically attached to this entity?
     const visualKeyNode = visualAttributes.find(attr => attr?.id === activeEntity?.data.primaryKey);
-    console.log("visualKeyNode", visualKeyNode);
-    
+    console.log(visualKeyNode)
 
     // 2. Filter hidden attributes (Assuming your hidden attributes might have an 'attributeType' later, 
     // but for now we just map them since they act as simple attributes by default)

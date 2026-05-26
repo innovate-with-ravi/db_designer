@@ -1,8 +1,10 @@
 import { Node, Edge } from '@xyflow/react';
 import React from 'react';
+import useDiagramStore from '@/store/useDiagramStore';
 
 interface Entity extends Node {
-    attributes: Node[]; // This tells TS: "This is an array that holds React Flow Nodes"
+    attributes: Node[];
+    foreignKeys: []
 }
 
 export const compress = (nodes: Node[], edges: Edge[]): Entity[] => {
@@ -18,7 +20,7 @@ export const compress = (nodes: Node[], edges: Edge[]): Entity[] => {
             compressedEntities[node.id] = {
                 ...node,
                 attributes: [
-                    ...(node.data.hiddenAttributes || []) // BOOM. Hidden attributes instantly compiled.
+                    ...(node.data.hiddenAttributes as any || []) // BOOM. Hidden attributes instantly compiled.
                 ]
             }
         }

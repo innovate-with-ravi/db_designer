@@ -56,11 +56,27 @@ export default function Sidebar() {
 
                 {/* Key Attribute */}
                 <div
-                    className="w-full h-12 rounded-[50%] border-2 border-black bg-white flex items-center justify-center cursor-grab mb-2 hover:bg-gray-50 underline decoration-solid"
+                    className="w-full h-12 rounded-[50%] border-2 border-black bg-white flex items-center justify-center cursor-grab mb-3 hover:bg-gray-50 underline decoration-solid"
                     onDragStart={(event) => onDragStart(event, 'attribute', 'key')}
                     draggable
                 >
                     Key
+                </div>
+
+                <div
+                    className="w-full h-12 rounded-[50%] border-2 border-black bg-white flex items-center justify-center cursor-grab mb-2 hover:bg-gray-50 outline-2 outline-offset-2 outline-black"
+                    onDragStart={(event) => onDragStart(event, 'attribute', 'multi-valued')}
+                    draggable
+                >
+                    Multi-Valued
+                </div>
+
+                <div
+                    className="w-full h-12 rounded-[50%] border-2 border-black bg-white flex items-center justify-center cursor-grab mb-2 hover:bg-gray-50 border-dashed"
+                    onDragStart={(event) => onDragStart(event, 'attribute', 'derived')}
+                    draggable
+                >
+                    Derived
                 </div>
             </div>
         </div>

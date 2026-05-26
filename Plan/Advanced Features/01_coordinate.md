@@ -1,0 +1,1 @@
+**coordinate/adjustment shows when adjusting node and edges to allow user to easily align/adjust**

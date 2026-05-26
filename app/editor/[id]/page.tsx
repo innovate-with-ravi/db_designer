@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useCallback, useRef } from 'react';
+import React, { useCallback, useEffect, useRef } from 'react';
 import { ReactFlow, Background, Controls, ReactFlowProvider, useReactFlow, ConnectionMode } from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
 
@@ -9,9 +9,9 @@ import EntityNode from '@/app/components/nodes/EntityNode';
 import AttributeNode from '@/app/components/nodes/AttributeNode';
 import Sidebar from '@/app/components/ui/Sidebar';
 import PropertiesPanel from '@/app/components/ui/PropertiesPanel';
-import { transcode } from 'buffer';
 import RelationshipEdge from '@/app/components/edges/RelationshipEdge';
 
+// Define these OUTSIDE the component to prevent unnecessary recreation
 const nodeTypes = {
   entity: EntityNode,
   attribute: AttributeNode,
@@ -147,9 +147,7 @@ function DnDCanvas() {
 
     return true; // Allow the connection
   }, []);
-
-  console.log("nodes: ", nodes);
-  console.log("edges: ", edges);
+  
 
   return (
     <div className="flex-1 h-full relative" ref={reactFlowWrapper}>
@@ -195,10 +193,16 @@ function DnDCanvas() {
 
 // Main page wrapper
 export default function EditorPage() {
+  console.log("EditorPage component rendered");  // Add THIS first
+  const {nodes, edges} = useDiagramStore()
+  
+  console.log("nodes: ", nodes);
+  console.log("edges: ", edges);
+
   return (
     <div className="w-screen h-screen flex overflow-hidden">
       <Sidebar />
-      {/* We wrap the canvas in the Provider so it can access the math hooks (screenToFlowPosition) */}
+      {/* We wrap the canvas in the Provider so it can access the math hooks (ReactFlowHooks) */}
       <ReactFlowProvider>
         <DnDCanvas />
       </ReactFlowProvider>
