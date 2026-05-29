@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useCallback, useEffect, useRef } from 'react';
+import React, { useCallback, useState, useRef } from 'react';
 import { ReactFlow, Background, Controls, ReactFlowProvider, useReactFlow, ConnectionMode } from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
 
@@ -10,6 +10,11 @@ import AttributeNode from '@/app/components/nodes/AttributeNode';
 import Sidebar from '@/app/components/ui/Sidebar';
 import PropertiesPanel from '@/app/components/ui/PropertiesPanel';
 import RelationshipEdge from '@/app/components/edges/RelationshipEdge';
+
+import SqlOutputModal from '@/app/components/ui/SqlOutputModal';
+import { generateMySQL } from '@/lib/sqlGenerator'; // Assuming this is where it lives!
+import { compileDiagramState } from '@/lib/compiler';
+import { generateSqlHtml } from '@/action/generateSqlHtml';
 
 // Define these OUTSIDE the component to prevent unnecessary recreation
 const nodeTypes = {
@@ -147,7 +152,7 @@ function DnDCanvas() {
 
     return true; // Allow the connection
   }, []);
-  
+
 
   return (
     <div className="flex-1 h-full relative" ref={reactFlowWrapper}>
@@ -193,21 +198,47 @@ function DnDCanvas() {
 
 // Main page wrapper
 export default function EditorPage() {
-  console.log("EditorPage component rendered");  // Add THIS first
-  const {nodes, edges} = useDiagramStore()
-  
-  console.log("nodes: ", nodes);
-  console.log("edges: ", edges);
+  const { nodes, edges } = useDiagramStore()
+  const [sqlOutput, setSqlOutput] = useState<{ sql: string, html: string } | null>(null);
+
+  const handleGenerate = async () => {
+    // 1. Run your O(N + E) compression
+    const compressedData = compileDiagramState(nodes, edges);
+
+    // 2. Generate the SQL string
+    const finalSql = generateMySQL(compressedData, edges);
+
+    // 3. Generate highlighted HTML
+    const htmlCode = await generateSqlHtml(finalSql);
+
+    // 4. Open the Modal
+    setSqlOutput({ sql: finalSql, html: htmlCode });
+  };
 
   return (
     <div className="w-screen h-screen flex overflow-hidden">
       <Sidebar />
-      {/* We wrap the canvas in the Provider so it can access the math hooks (ReactFlowHooks) */}
-      <ReactFlowProvider>
-        <DnDCanvas />
-      </ReactFlowProvider>
+
+      <div className="flex-1 relative">
+        {/* Floating Generate Button */}
+        <button
+          onClick={handleGenerate}
+          className="absolute top-4 right-4 z-50 bg-blue-600 text-white px-6 py-3 rounded-md font-bold shadow-lg hover:bg-blue-700 transition"
+        >
+          Generate SQL
+        </button>
+
+        <ReactFlowProvider>
+          <DnDCanvas />
+        </ReactFlowProvider>
+      </div>
 
       <PropertiesPanel />
+
+      {/* Render the modal if sqlOutput has text */}
+      {sqlOutput && (
+        <SqlOutputModal sql={sqlOutput.sql} htmlCode={sqlOutput.html} onClose={() => setSqlOutput(null)} />
+      )}
     </div>
   );
 }

@@ -1,18 +1,25 @@
 // lib/sqlGenerator.ts
 
-// Helper function to find the full Attribute object using the normalized PK string
+// 🌟 1. The Normalizer: Extracts data perfectly whether it's a visual node or hidden attribute
 const getPKDetails = (entity: any) => {
     const pkIdentifier = entity.data?.primaryKey;
     if (!pkIdentifier) return null;
-    // Search the flattened attributes array for the matching name or ID
-    return entity.attributes.find((attr: any) => attr.name === pkIdentifier || attr.id === pkIdentifier);
+
+    // Find the raw attribute object
+    const rawAttr = entity.attributes.find((attr: any) => attr.id === pkIdentifier || attr.name === pkIdentifier);
+    if (!rawAttr) return null;
+
+    // Return a perfectly flat, predictable object
+    return {
+        name: rawAttr.name || rawAttr.data?.label,
+        dataType: rawAttr.dataType || rawAttr.data?.dataType,
+        size: rawAttr.size || rawAttr.data?.size
+    };
 };
 
 const preProcessRelationships = (compiledEntities: any[], edges: any[]) => {
-    // 1. Deep copy the entities so we don't mutate the Zustand store directly, 
-    // and initialize an empty foreignKeys array on every table.
+    // Deep copy and initialize empty foreignKeys array
     let processedEntities = compiledEntities.map(e => ({ ...e, foreignKeys: [] }));
-
     const relationshipEdges = edges.filter(e => e.type === 'relationship');
 
     relationshipEdges.forEach(edge => {
@@ -21,25 +28,24 @@ const preProcessRelationships = (compiledEntities: any[], edges: any[]) => {
 
         if (!sourceNode || !targetNode) return;
 
-        // Safely extract cardinalities (defaulting to 1 and N if missing)
-        const sourceMax = edge.data?.sourceMaximumCardinality || '1';
+        // 🌟 2. Fixed Defaults: Must match your UI components exactly!
+        const sourceMax = edge.data?.sourceMaximumCardinality || 'M';
         const targetMax = edge.data?.targetMaximumCardinality || 'N';
 
         const sourcePK = getPKDetails(sourceNode);
         const targetPK = getPKDetails(targetNode);
 
-        if (!sourcePK || !targetPK) return; // Skip if a table is missing a PK
+        if (!sourcePK || !targetPK) return;
 
-        // SCENARIO 1: Many-to-Many (M:N) -> Create a Junction Table!
+        // SCENARIO 1: Many-to-Many (M:N) -> Create a Junction Table
         if ((sourceMax === 'M' || sourceMax === 'N') && (targetMax === 'M' || targetMax === 'N')) {
-            // Name it dynamically based on the relationship name (e.g., STUDENT_ENROLLS_COURSE)
             const relName = edge.data?.label && edge.data.label !== 'REL' ? `_${edge.data.label}_` : '_';
             const junctionName = `${sourceNode.data.label}${relName}${targetNode.data.label}`;
 
             const junctionTable = {
                 id: `junction_${edge.id}`,
                 data: { label: junctionName.toUpperCase(), primaryKey: 'COMPOSITE' },
-                attributes: [], // No standard attributes
+                attributes: [],
                 foreignKeys: [
                     {
                         name: `${sourceNode.data.label.toLowerCase()}_${sourcePK.name}`,
@@ -63,7 +69,7 @@ const preProcessRelationships = (compiledEntities: any[], edges: any[]) => {
         if (edge.source === edge.target) {
             const relName = edge.data?.label && edge.data.label !== 'REL' ? edge.data.label.toLowerCase() : 'parent';
             sourceNode.foreignKeys.push({
-                name: `${relName}_${sourcePK.name}`, // e.g., 'manager_emp_id'
+                name: `${relName}_${sourcePK.name}`,
                 dataType: sourcePK.dataType, size: sourcePK.size,
                 referencesTable: sourceNode.data.label, referencesCol: sourcePK.name
             });
@@ -74,18 +80,15 @@ const preProcessRelationships = (compiledEntities: any[], edges: any[]) => {
         let receivingNode, referencingNode, referencingPK;
 
         if (sourceMax === '1' && (targetMax === 'N' || targetMax === 'M')) {
-            // 1:N -> Target gets the FK
             receivingNode = targetNode; referencingNode = sourceNode; referencingPK = sourcePK;
         } else if ((sourceMax === 'M' || sourceMax === 'N') && targetMax === '1') {
-            // N:1 -> Source gets the FK
             receivingNode = sourceNode; referencingNode = targetNode; referencingPK = targetPK;
         } else {
-            // 1:1 -> Arbitrarily put it in the target to keep it simple
             receivingNode = targetNode; referencingNode = sourceNode; referencingPK = sourcePK;
         }
 
         receivingNode.foreignKeys.push({
-            name: `${referencingNode.data.label.toLowerCase()}_${referencingPK.name}`, // e.g., 'department_dept_id'
+            name: `${referencingNode.data.label.toLowerCase()}_${referencingPK.name}`,
             dataType: referencingPK.dataType, size: referencingPK.size,
             referencesTable: referencingNode.data.label, referencesCol: referencingPK.name
         });
@@ -94,14 +97,10 @@ const preProcessRelationships = (compiledEntities: any[], edges: any[]) => {
     return processedEntities;
 };
 
-
 export const generateMySQL = (compiledEntities: any[], edges: any[]) => {
     let sqlScript = `-- Generated by DB Designer\n\n`;
-
-    // 1. Run the Pre-Processor first!
     const processedEntities = preProcessRelationships(compiledEntities, edges);
 
-    // 2. Build the tables using the processed array
     processedEntities.forEach((entity) => {
         sqlScript += buildTableSQL(entity);
     });
@@ -113,32 +112,37 @@ const buildTableSQL = (entity: any) => {
     let tableScript = `CREATE TABLE ${entity.data.label} (\n`;
     const constraints: string[] = [];
 
-    // 1. Standard Attributes
-    const columnDefinitions = entity.attributes.map((attr: any) => {
-        const sizeStr = attr.size ? `(${attr.size})` : "";
-        const isPK = entity.data.primaryKey === attr.name || entity.data.primaryKey === attr.id;
+    // 🌟 3. Normalize Standard Attributes inline
+    const columnDefinitions = entity.attributes.map((rawAttr: any) => {
+        const name = rawAttr.name || rawAttr.data?.label;
+        const dataType = rawAttr.dataType || rawAttr.data?.dataType;
+        const size = rawAttr.size || rawAttr.data?.size;
+
+        const sizeStr = size ? `(${size})` : "";
+        const isPK = entity.data.primaryKey === rawAttr.name || entity.data.primaryKey === rawAttr.id;
         const pkStr = isPK ? " PRIMARY KEY" : "";
-        return `    ${attr.name} ${attr.dataType}${sizeStr}${pkStr}`;
+
+        return `    ${name} ${dataType}${sizeStr}${pkStr}`;
     });
 
-    // 2. Foreign Key Attributes
+    // Foreign Key Attributes (These are already perfectly flat from our preProcessor)
     if (entity.foreignKeys && entity.foreignKeys.length > 0) {
         entity.foreignKeys.forEach((fk: any) => {
             const sizeStr = fk.size ? `(${fk.size})` : "";
+            // Push the FK column itself
             columnDefinitions.push(`    ${fk.name} ${fk.dataType}${sizeStr}`);
-
-            // Generate the actual relational constraint
+            // Push the relational constraint
             constraints.push(`    FOREIGN KEY (${fk.name}) REFERENCES ${fk.referencesTable}(${fk.referencesCol})`);
         });
 
-        // 3. Handle Composite Primary Keys for M:N Junction Tables
+        // Handle Composite Primary Keys for M:N Junction Tables
         const junctionPKs = entity.foreignKeys.filter((fk: any) => fk.isJunctionPK).map((fk: any) => fk.name);
         if (junctionPKs.length > 0) {
             constraints.unshift(`    PRIMARY KEY (${junctionPKs.join(', ')})`);
         }
     }
 
-    // Combine columns and constraints
+    // Combine columns and constraints cleanly
     const allTableLines = [...columnDefinitions, ...constraints];
     tableScript += allTableLines.join(',\n');
     tableScript += `\n);\n\n`;

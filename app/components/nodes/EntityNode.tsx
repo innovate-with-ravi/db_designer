@@ -114,10 +114,10 @@ const EntityNode = ({ data, id }: any) => {
                         type='text'
                         autoFocus
                         value={label}
-                        onChange={(e) => handleLabelChange(e.target.value)}
+                        onChange={(e) => handleLabelChange(e.target.value?.toUpperCase())}
                         onBlur={(e) => {
                             // The FAANG-level clean update:
-                            updateNodeData(id, { label: e.target.value.toUpperCase() });
+                            updateNodeData(id, { label: e.target.value });
                         }}
                     />
                 )}

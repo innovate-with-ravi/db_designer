@@ -4,10 +4,10 @@ import useDiagramStore from '@/store/useDiagramStore';
 
 interface Entity extends Node {
     attributes: Node[];
-    foreignKeys: []
+    foreignKeys: [];
 }
 
-export const compress = (nodes: Node[], edges: Edge[]): Entity[] => {
+export const compileDiagramState = (nodes: Node[], edges: Edge[]): Entity[] => {
     // Replace your variable declarations with this:
     let nodeDirectory: Record<string, Node> = {};
     let compressedEntities: Record<string, Entity> = {};
@@ -20,8 +20,9 @@ export const compress = (nodes: Node[], edges: Edge[]): Entity[] => {
             compressedEntities[node.id] = {
                 ...node,
                 attributes: [
-                    ...(node.data.hiddenAttributes as any || []) // BOOM. Hidden attributes instantly compiled.
-                ]
+                    ...(node.data.hiddenAttributes as any || [])
+                ],
+                foreignKeys: []
             }
         }
     }
