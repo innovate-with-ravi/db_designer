@@ -4,8 +4,8 @@ import useDiagramStore from '@/store/useDiagramStore';
 
 const getOffsetPos = (pos: string, x: number, y: number, offset = 25) => {
     switch (pos) {
-        case Position.Top: return { x, y: y - offset + 10 };
-        case Position.Bottom: return { x, y: y + offset - 10 };
+        case Position.Top: return { x, y: y - offset };
+        case Position.Bottom: return { x, y: y + offset };
         case Position.Left: return { x: x - offset, y };
         case Position.Right: return { x: x + offset, y };
         default: return { x, y };
@@ -81,6 +81,63 @@ const getUnaryPath = (sourceX: number, sourceY: number, sourcePosition: string, 
     return [path, labelX, labelY];
 };
 
+// Helper Component to dynamically order Min/Max using strict X/Y coordinates
+const CardinalityBadge = ({ min, max, nodeX, nodeY, labelX, labelY, onMinClick, onMaxClick }: any) => {
+
+    // 1. Calculate the spatial difference between the label and the entity
+    const dx = labelX - nodeX;
+    const dy = labelY - nodeY;
+
+    // 2. Is the line traveling more horizontally or vertically?
+    const isHorizontal = Math.abs(dx) > Math.abs(dy);
+
+    // 3. Determine orientation
+    let maxFirst = false;
+    if (isHorizontal) {
+        // dx > 0 means the label is to the RIGHT of the entity. Max goes left (first).
+        maxFirst = dx > 0;
+    } else {
+        // dy > 0 means the label is BELOW the entity. Max goes top (first).
+        maxFirst = dy > 0;
+    }
+
+    // Tiny button wrapper
+    const CardBtn = ({ val, onClick, title }: any) => (
+        <button
+            title={title}
+            className="text-[10px] font-bold text-blue-600 hover:text-blue-800 px-0.5 leading-none"
+            onClick={(e) => {
+                e.stopPropagation();
+                onClick();
+            }}
+        >
+            {val}
+        </button>
+    );
+
+    // 4. Dynamically swap flex-row vs flex-col based on the axis!
+    const containerClasses = isHorizontal ? 'flex-row items-center' : 'flex-col items-center py-1';
+    const separatorClasses = isHorizontal ? 'mx-0.5' : 'my-0.5 leading-none';
+
+    return (
+        <div className={`flex bg-white px-1 rounded shadow-sm border border-gray-300 pointer-events-auto ${containerClasses}`}>
+            {maxFirst ? (
+                <>
+                    <CardBtn val={max} onClick={onMaxClick} title="Toggle Max" />
+                    <span className={`text-[10px] text-gray-400 ${separatorClasses}`}>,</span>
+                    <CardBtn val={min} onClick={onMinClick} title="Toggle Min" />
+                </>
+            ) : (
+                <>
+                    <CardBtn val={min} onClick={onMinClick} title="Toggle Min" />
+                    <span className={`text-[10px] text-gray-400 ${separatorClasses}`}>,</span>
+                    <CardBtn val={max} onClick={onMaxClick} title="Toggle Max" />
+                </>
+            )}
+        </div>
+    );
+};
+
 export default function RelationshipEdge({ id, source, target, sourceX, sourceY, targetX, targetY, sourcePosition, targetPosition, style = {}, data }: any) {
     const { updateEdgeData } = useDiagramStore();
     const [isEditing, setIsEditing] = useState(false);
@@ -116,24 +173,28 @@ export default function RelationshipEdge({ id, source, target, sourceX, sourceY,
             <BaseEdge path={edgePath as string} style={{ ...style, strokeWidth: 2, stroke: '#374151' }} />
 
             <EdgeLabelRenderer>
-                {/* Source Cardinality */}
+                {/* Dynamic Source Cardinality */}
                 <div
                     style={{
                         position: 'absolute',
-                        // 3. Use the dynamic coordinates
                         transform: `translate(-50%, -50%) translate(${srcLabel.x}px, ${srcLabel.y}px)`,
                         pointerEvents: 'all',
                     }}
-                    className="flex items-center gap-1 bg-white px-1 py-0.5 rounded shadow-sm border border-gray-300 nodrag nopan"
+                    className="nodrag nopan z-20"
                 >
-                    <button className="text-[10px] font-bold text-blue-600 hover:text-blue-800" onClick={() => updateEdgeData(id, { sourceMaximumCardinality: sourceMaxCard === '1' ? 'M' : '1' })}>
-                        {sourceMaxCard}
-                    </button>
-                    <span className="text-[10px] text-gray-400">,</span>
-                    <button className="text-[10px] font-bold text-blue-600 hover:text-blue-800" onClick={() => updateEdgeData(id, { sourceMinimumCardinality: sourceMinCard === '1' ? '0' : '1' })}>
-                        {sourceMinCard}
-                    </button>
+                    <CardinalityBadge
+                        min={sourceMinCard}
+                        max={sourceMaxCard}
 
+                        // Pass the coordinates!
+                        nodeX={sourceX}
+                        nodeY={sourceY}
+                        labelX={srcLabel.x}
+                        labelY={srcLabel.y}
+
+                        onMinClick={() => updateEdgeData(id, { sourceMinimumCardinality: sourceMinCard === '1' ? '0' : '1' })}
+                        onMaxClick={() => updateEdgeData(id, { sourceMaximumCardinality: sourceMaxCard === '1' ? 'M' : '1' })}
+                    />
                 </div>
 
                 {/* The Relationship Diamond */}
@@ -187,23 +248,28 @@ export default function RelationshipEdge({ id, source, target, sourceX, sourceY,
                     </div>
                 </div>
 
-                {/* Target Cardinality */}
+                {/* Dynamic Target Cardinality */}
                 <div
                     style={{
                         position: 'absolute',
                         transform: `translate(-50%, -50%) translate(${tgtLabel.x}px, ${tgtLabel.y}px)`,
                         pointerEvents: 'all',
                     }}
-                    className="flex items-center gap-1 bg-white px-1 py-0.5 rounded shadow-sm border border-gray-300 nodrag nopan"
+                    className="nodrag nopan z-20"
                 >
+                    <CardinalityBadge
+                        min={targetMinCard}
+                        max={targetMaxCard}
 
-                    <button className="text-[10px] font-bold text-blue-600 hover:text-blue-800" onClick={() => updateEdgeData(id, { targetMaximumCardinality: targetMaxCard === '1' ? 'N' : '1' })}>
-                        {targetMaxCard}
-                    </button>
-                    <span className="text-[10px] text-gray-400">,</span>
-                    <button className="text-[10px] font-bold text-blue-600 hover:text-blue-800" onClick={() => updateEdgeData(id, { targetMinimumCardinality: targetMinCard === '1' ? '0' : '1' })}>
-                        {targetMinCard}
-                    </button>
+                        // Pass the coordinates!
+                        nodeX={targetX}
+                        nodeY={targetY}
+                        labelX={tgtLabel.x}
+                        labelY={tgtLabel.y}
+
+                        onMinClick={() => updateEdgeData(id, { targetMinimumCardinality: targetMinCard === '1' ? '0' : '1' })}
+                        onMaxClick={() => updateEdgeData(id, { targetMaximumCardinality: targetMaxCard === '1' ? 'N' : '1' })}
+                    />
                 </div>
             </EdgeLabelRenderer>
         </>

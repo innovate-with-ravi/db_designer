@@ -35,11 +35,11 @@ export default function PropertiesPanel() {
     );
 
     // The Animation Logic: If there is an active ID, sit at x=0. Otherwise, push it 100% off the right edge.
-    const transformClass = activeExpandedEntityId ? '' : 'hidden';
+    const transformClass = activeExpandedEntityId ? 'translate-x-0' : 'translate-x-full';
 
     return (
         <div
-            className={`w-80 h-full bg-white shadow-2xl border-l border-gray-200 transition-transform duration-300 ease-in-out z-50 flex flex-col ${transformClass}`}
+            className={`fixed top-0 right-0 w-80 h-full bg-white shadow-2xl border-l border-gray-200 transition-transform duration-300 ease-in-out z-50 flex flex-col ${transformClass}`}
         >
             {/* We only render the form if an entity is successfully found */}
             {activeEntity && (
@@ -99,6 +99,7 @@ export default function PropertiesPanel() {
                                 <input
                                     type="number"
                                     placeholder="Size (e.g. 255)"
+                                    className={`${(attr?.data.dataType === 'VARCHAR' && !attr?.data?.size) ? 'border-red-500 border bg-red-50' : 'border-gray-300'} focus-visible:outline-none`}
                                     value={attr?.data.size as string || ''}
                                     onChange={(e) => updateNodeData(attr?.id, { size: e.target.value })}
                                 />

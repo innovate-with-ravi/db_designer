@@ -12,13 +12,13 @@ Keep the page structure lean. You only need three main views.
 
 This is where the heavy UI logic lives.
 
-* **\<Canvas/\>**: The main React Flow wrapper. Handles the drag-and-drop physics and zooming.  
-* **\<EntityNode/\>**: The custom node we designed.  
-  * *View Mode:* Shows table name and column list.  
-  * *Edit Mode:* Expands into a form. Checks for missing Primary Keys live and highlights inputs in red if empty.  
-* **\<RelationshipEdge/\>**: The custom edge we designed. Renders the 90-degree step line, the center diamond, and the two floating cardinality inputs (1, N, M, etc.).  
+* **\<Canvas/\>**: The main React Flow wrapper. Handles the drag-and-drop physics and zooming. <b>(done)</b>
+* **\<EntityNode/\>**: The custom node we designed.  <b>(done)</b>
+  * *View Mode:* Shows table name and column list.  <b>(done)</b>
+  * *Edit Mode:* Expands into a form. Checks for missing Primary Keys live and highlights inputs in red if empty.  <b>(done)</b>
+* **\<RelationshipEdge/\>**: The custom edge we designed. Renders the 90-degree step line, the center diamond, and the two floating cardinality inputs (1, N, M, etc.). <b>(done)</b> 
 * **\<ValidationSidebar/\>**: Slides out when the user clicks "Generate". Displays global errors (e.g., "Table 'Orders' is completely disconnected").  
-* **\<SqlOutputModal/\>**: A popup window displaying the final, formatted DDL SQL script with a "Copy to Clipboard" button.
+* **\<SqlOutputModal/\>**: A popup window displaying the final, formatted DDL SQL script with a "Copy to Clipboard" button.<b>(done)</b>
 
 ### **3\. The State Management (Zustand)**
 

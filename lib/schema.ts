@@ -1,44 +1,48 @@
 import { z } from 'zod';
 
-// Define the strict rules for a single column/attribute
-export const attributeSchema = z.object({
-    name: z.string().min(1, { message: "Column name cannot be empty" }),
-    dataType: z.string().min(1, { message: "Data type is required" }),
-    size: z.string().optional(),
-    isPrimaryKey: z.boolean().optional().default(false),
-}).refine((data) => {
-    // Custom Rule: If it's a VARCHAR, size is mandatory
-    if (data.dataType === 'VARCHAR' && (!data.size || data.size === '')) {
-        return false;
-    }
-    return true;
-}, { message: "VARCHAR requires a size", path: ["size"] });
-
+// 1. The Attribute Schema (Handles BOTH flat hidden attributes and nested visual nodes)
+export const attributeSchema = z.preprocess(
+    (attr: any) => ({
+        name: attr?.name || attr?.data?.label || '',
+        dataType: attr?.dataType || attr?.data?.dataType || '',
+        size: attr?.size || attr?.data?.size || ''
+    }),
+    z.object({
+        name: z.string().min(1, { message: "Column name cannot be empty" }),
+        dataType: z.string().min(1, { message: "Data type is required" }),
+        size: z.string().optional(),
+    }).refine((attr) => {
+        if ((attr.dataType === 'VARCHAR' || attr.dataType === 'CHAR') && (!attr.size || attr.size === '')) {
+            return false;
+        }
+        return true;
+    }, { message: "VARCHAR/CHAR requires a size", path: ["size"] })
+);
+// 2. The Entity Schema
 export const entitySchema = z.object({
     id: z.string(),
-    label: z.string().min(1, { message: "Table name is required" }),
-
-    // Zod now just looks for your single unified string!
-    primaryKey: z.string().min(1, { message: "Table is missing a Primary Key" }),
-
+    // Zod must look inside the "data" object because that's where React Flow stores it!
+    data: z.object({
+        label: z.string().min(1, { message: "Table name is required" }),
+        primaryKey: z.string().min(1, { message: "Table is missing a Primary Key" }),
+    }),
     attributes: z.array(attributeSchema).min(1, { message: "Table must have at least one attribute" }),
 }).refine((entity) => {
-    // Custom Rule: Every table must have exactly one Primary Key
-    const pkCount = entity.attributes.filter(attr => attr.isPrimaryKey).length;
-    return pkCount == 1;
-}, { message: "Table must have excatly 1 Primary Key", path: ["attributes"] });
+    const colNames = new Set<string>();
 
-// The master schema for the entire generated array of entities(compressedEntities)
+    for (const attr of entity.attributes) {
+        if (colNames.has(attr.name)) {
+            return false;
+        }
+        colNames.add(attr.name);
+    }
+
+    return true;
+}, {
+    message: "Duplicate column names are not allowed",
+    path: ["attributes"],
+})
+// (Note: We removed the old pkCount == 1 refine block because primaryKey is now a single string, so it physically cannot be more than 1).
+
+// 3. The Master Schema
 export const databaseSchema = z.array(entitySchema);
-
-const dataSchema = z.object({
-    label: z.string(),
-});
-
-// export const nodeSchema = z.object({
-//     id: z.string(),
-//     data: dataSchema,
-// })
-
-// const result = nodeSchema.parse({ id: 'xyz', data: { label: 'ravi' } });
-// console.log(result);

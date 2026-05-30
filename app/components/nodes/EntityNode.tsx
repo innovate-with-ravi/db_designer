@@ -8,7 +8,7 @@ const EntityNode = ({ data, id }: any) => {
     const [isEditing, setIsEditing] = useState(false);
 
     // Pull the specific actions from YOUR global brain
-    const { activeExpandedEntityId, updateNodeData, setEntityExpanded, nodes, edges } = useDiagramStore();
+    const { activeExpandedEntityId, updateNodeData, setEntityExpanded, activeErrorNodeId, nodes, edges } = useDiagramStore();
 
     useEffect(() => {
         setEntityExpanded(id)// activeEntity when it's loaded into canvas
@@ -42,7 +42,7 @@ const EntityNode = ({ data, id }: any) => {
         const hasMissingType = allAttrs.some(attr => !attr.dataType || attr.dataType === '');
         if (hasMissingType) return true;
 
-        const hasMissingSize = allAttrs.some(attr => attr.dataType === 'VARCHAR' && attr.size === '');
+        const hasMissingSize = allAttrs.some(attr => attr.dataType === 'VARCHAR' && (attr.size === '' || !attr.size));
         if (hasMissingSize) return true;
 
         return false;
@@ -79,17 +79,22 @@ const EntityNode = ({ data, id }: any) => {
         }, 300);
     };
 
-    // The dynamic border logic!
-    const isWeak = data.entityType === 'weak';
-    const dynamicBorder = isWeak ? 'border-4 border-double' : 'border-2';
+    const isTargeted = activeErrorNodeId === id;
+
+    // Build the dynamic Tailwind classes
+    const borderStyle = data.entityType === 'weak' ? 'border-4 border-double' : 'border-2';
+    const errorBorder = hasError ? 'border-yellow-500' : 'border-black';
+
+    // 🌟 The Red Glow Effect!
+    const targetGlow = isTargeted ? 'ring-4 ring-red-500 shadow-[0_0_25px_rgba(239,68,68,0.9)] animate-pulse' : '';
 
     return (
         <div className="relative">
             <div
                 onDoubleClick={handleDoubleClick}
                 onBlur={() => setIsEditing(false)}
-                // We add a subtle yellow border if there's an error to draw the eye
-                className={`w-40 h-12 border-2 ${dynamicBorder} bg-white rounded-md flex items-center justify-center relative transition-colors ${hasError ? 'border-yellow-500' : 'border-black'}`}
+                // Apply the glow class to the main wrapper!
+                className={`w-40 h-12 bg-white rounded-md flex items-center justify-center transition-all duration-300 ${borderStyle} ${errorBorder} ${targetGlow}`}
                 onClick={handleClick}
                 onFocus={() => { setEntityExpanded(id) }}
             >

@@ -1,20 +1,26 @@
 "use client";
 
-import React, { useCallback, useState, useRef } from 'react';
+import React, { useCallback, useState, useRef, useEffect } from 'react';
 import { ReactFlow, Background, Controls, ReactFlowProvider, useReactFlow, ConnectionMode } from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
 
 import useDiagramStore from '../../../store/useDiagramStore';
 import EntityNode from '@/app/components/nodes/EntityNode';
 import AttributeNode from '@/app/components/nodes/AttributeNode';
-import Sidebar from '@/app/components/ui/Sidebar';
+import Sidebar from '@/app/components/ui/LeftSidebar';
 import PropertiesPanel from '@/app/components/ui/PropertiesPanel';
 import RelationshipEdge from '@/app/components/edges/RelationshipEdge';
 
-import SqlOutputModal from '@/app/components/ui/SqlOutputModal';
-import { generateMySQL } from '@/lib/sqlGenerator'; // Assuming this is where it lives!
+import { generateMySQL } from '@/lib/sqlGenerator';
 import { compileDiagramState } from '@/lib/compiler';
 import { generateSqlHtml } from '@/action/generateSqlHtml';
+import SqlOutputModal from '@/app/components/ui/SqlOutputModal';
+
+import ValidationConsole from '@/app/components/ui/ValidationConsole';
+
+import { z } from 'zod';
+import { databaseSchema } from '@/lib/schema';
+import { ValidationError } from '@/store/useDiagramStore';
 
 // Define these OUTSIDE the component to prevent unnecessary recreation
 const nodeTypes = {
@@ -36,7 +42,7 @@ function DnDCanvas() {
     (event: React.DragEvent) => {
       event.preventDefault();
 
-      event.dataTransfer.dropEffect = 'move';// why & how this works
+      event.dataTransfer.dropEffect = 'move';
     }
     , []);
 
@@ -153,6 +159,8 @@ function DnDCanvas() {
     return true; // Allow the connection
   }, []);
 
+  console.log("nodes: ", nodes)
+  console.log("edges: ", edges)
 
   return (
     <div className="flex-1 h-full relative" ref={reactFlowWrapper}>
@@ -198,13 +206,46 @@ function DnDCanvas() {
 
 // Main page wrapper
 export default function EditorPage() {
-  const { nodes, edges } = useDiagramStore()
+  const { nodes, edges, validateDiagram, setEntityExpanded, activeExpandedEntityId, setGlobalErrors } = useDiagramStore();
   const [sqlOutput, setSqlOutput] = useState<{ sql: string, html: string } | null>(null);
 
   const handleGenerate = async () => {
-    // 1. Run your O(N + E) compression
+    // 1. First, check purely visual/topological rules (like disconnected tables)
+    // You will update your Zustand validateDiagram to push objects: { message: "...", nodeId: id }
+    const isTopologicallyValid = validateDiagram();
+    if (!isTopologicallyValid) return;
+
+    // 2. Compile the JSON Array for Zod
     const compressedData = compileDiagramState(nodes, edges);
 
+    // 3. The Strict Zod Net
+    const validationResult = databaseSchema.safeParse(compressedData);
+
+    if (!validationResult.success) {
+      // Map Zod errors into our interactive UI format
+      const zodErrors: ValidationError[] = validationResult.error.issues.map((issue) => {
+        // Zod 'path' looks like: [0(idx of entity), "attributes" (where problem in entity?), 1 (idx of attribute), "dataType" (where problem in attribute?)]
+        // The 0th index is the index of the entity in our compressedData array!
+        const entityIndex = issue.path[0] as number;
+        const brokenEntity = compressedData[entityIndex];
+
+        // Clean up the error message for the user
+        const fieldName = issue.path[issue.path.length - 1] as string; // e.g., "dataType"
+        const customMessage = `Table '${brokenEntity.data.label}' has an error in '${fieldName}': ${issue.message}`;
+
+        return {
+          message: customMessage,
+          nodeId: brokenEntity.id // Pass the ID so the "Focus & Fix" button works!
+        };
+      });
+
+      // Fire the bottom console!
+      setGlobalErrors(zodErrors);
+      return;
+    }
+
+
+    // generating color-coded html for sql
     // 2. Generate the SQL string
     const finalSql = generateMySQL(compressedData, edges);
 
@@ -215,25 +256,39 @@ export default function EditorPage() {
     setSqlOutput({ sql: finalSql, html: htmlCode });
   };
 
+  // if activeExpandedEntity is not in canvas => slide out propsPanel 
+  // i.e. on deleting entity using <- backspace, slide out propsPanel
+  useEffect(() => {
+    if (!nodes.some((n) => n.id == activeExpandedEntityId))
+      setEntityExpanded(null)
+  }, [nodes])
+
   return (
     <div className="w-screen h-screen flex overflow-hidden">
       <Sidebar />
 
-      <div className="flex-1 relative">
-        {/* Floating Generate Button */}
-        <button
-          onClick={handleGenerate}
-          className="absolute top-4 right-4 z-50 bg-blue-600 text-white px-6 py-3 rounded-md font-bold shadow-lg hover:bg-blue-700 transition"
-        >
-          Generate SQL
-        </button>
+      <ReactFlowProvider>
+        <div className="flex-1 relative">
 
-        <ReactFlowProvider>
+          {/* Floating Generate Button */}
+          <button
+            onClick={handleGenerate}
+            className="absolute top-4 right-4 z-50 bg-blue-600 text-white px-6 py-3 rounded-md font-bold shadow-lg hover:bg-blue-700 transition"
+          >
+            Generate SQL
+          </button>
+
           <DnDCanvas />
-        </ReactFlowProvider>
-      </div>
 
-      <PropertiesPanel />
+        </div>
+
+        <PropertiesPanel />
+
+        {/* Mount the Validation Sidebar (it handles its own open/close state) */}
+        {/* <ValidationSidebar /> */}
+
+        <ValidationConsole />
+      </ReactFlowProvider>
 
       {/* Render the modal if sqlOutput has text */}
       {sqlOutput && (
