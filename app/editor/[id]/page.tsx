@@ -264,30 +264,33 @@ export default function EditorPage() {
   }, [nodes])
 
   return (
-    <div className="w-screen h-screen flex overflow-hidden">
-      <Sidebar />
+    // 1. Master wrapper is now a Flex Column
+    <div className="w-screen h-screen flex flex-col overflow-hidden bg-gray-50">
 
       <ReactFlowProvider>
-        <div className="flex-1 relative">
 
-          {/* Floating Generate Button */}
-          <button
-            onClick={handleGenerate}
-            className="absolute top-4 right-4 z-50 bg-blue-600 text-white px-6 py-3 rounded-md font-bold shadow-lg hover:bg-blue-700 transition"
-          >
-            Generate SQL
-          </button>
+        {/* 2. TOP ROW: The Workspace (takes up all remaining space) */}
+        <div className="flex-1 flex overflow-hidden">
+          <Sidebar />
 
-          <DnDCanvas />
+          <div className="flex-1 relative">
 
+            <button
+              onClick={handleGenerate}
+              className="absolute top-4 right-4 z-50 bg-blue-600 text-white px-6 py-3 rounded-md font-bold shadow-lg hover:bg-blue-700 transition"
+            >
+              Generate SQL
+            </button>
+            <DnDCanvas />
+
+          </div>
+
+          <PropertiesPanel />
         </div>
 
-        <PropertiesPanel />
-
-        {/* Mount the Validation Sidebar (it handles its own open/close state) */}
-        {/* <ValidationSidebar /> */}
-
+        {/* 3. BOTTOM ROW: The Resizable Console */}
         <ValidationConsole />
+
       </ReactFlowProvider>
 
       {/* Render the modal if sqlOutput has text */}

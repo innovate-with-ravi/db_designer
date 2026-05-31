@@ -34,12 +34,13 @@ export default function PropertiesPanel() {
         attr.attributeType !== 'derived' && attr.attributeType !== 'multi-valued'
     );
 
-    // The Animation Logic: If there is an active ID, sit at x=0. Otherwise, push it 100% off the right edge.
-    const transformClass = activeExpandedEntityId ? 'translate-x-0' : 'translate-x-full';
+    // The Animation Logic: We use negative margins instead of 'fixed' positioning 
+    // so it stays inside the top Flex row and never overlaps the bottom console!
+    const transformClass = activeExpandedEntityId ? 'mr-0' : '-mr-80';
 
     return (
         <div
-            className={`fixed top-0 right-0 w-80 h-full bg-white shadow-2xl border-l border-gray-200 transition-transform duration-300 ease-in-out z-50 flex flex-col ${transformClass}`}
+            className={`w-80 h-full flex-shrink-0 bg-white shadow-2xl border-l border-gray-200 transition-all duration-300 ease-in-out z-40 flex flex-col ${transformClass}`}
         >
             {/* We only render the form if an entity is successfully found */}
             {activeEntity && (
@@ -109,7 +110,13 @@ export default function PropertiesPanel() {
 
                     <h3 className="font-bold text-gray-700 mt-4">Hidden Attributes</h3>
                     {hiddenAttributes.map((hiddenAttr: any, index: any) => (
-                        <div key={index} className="border p-2 mb-2">
+                        <div key={index} className="border p-4 mb-2 relative">
+                            <div
+                                className="text-red-800 font-bold text-2xl cursor-pointer absolute -top-1 right-1"
+                                onClick={(e) => {
+                                    const newArray = hiddenAttributes.filter(attr => attr.name != hiddenAttr.name);
+                                    updateNodeData(activeEntity.id, { hiddenAttributes: newArray });
+                                }}>&times;</div>
                             {/* Name Input */}
                             <input
                                 type="text"

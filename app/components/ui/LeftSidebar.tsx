@@ -15,7 +15,7 @@ export default function Sidebar() {
     };
 
     return (
-        <div className="w-64 bg-gray-100 border-r border-gray-300 p-4 flex flex-col gap-4">
+        <div className="overflow-y-auto w-64 bg-gray-100 border-r border-gray-300 p-4 flex flex-col gap-4">
             <h2 className="text-lg font-bold border-b pb-2">Symbols</h2>
 
             {/* Entity Draggable */}
