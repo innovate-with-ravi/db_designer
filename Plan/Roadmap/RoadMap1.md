@@ -6,9 +6,9 @@ Keep the page structure lean. You only need three main views.
 
 * app/page.tsx: **Landing Page.** Simple hero section explaining the tool, with a "Sign in with Google" (NextAuth) button.  
 * app/dashboard/page.tsx: **Project Hub.** A grid displaying the user's saved ER diagrams. Includes a "Create New Diagram" button.  
-* app/editor/\[id\]/page.tsx: **The Core App.** The actual workspace containing the full-screen interactive canvas.
+* app/editor/\[id\]/page.tsx: **The Core App.** The actual workspace containing the full-screen interactive canvas.<b>(done)</b>
 
-### **2\. The Frontend Architecture (React Flow Components)**
+### **2\. The Frontend Architecture (React Flow Components)** <b>(done)</b>
 
 This is where the heavy UI logic lives.
 
@@ -17,10 +17,10 @@ This is where the heavy UI logic lives.
   * *View Mode:* Shows table name and column list.  <b>(done)</b>
   * *Edit Mode:* Expands into a form. Checks for missing Primary Keys live and highlights inputs in red if empty.  <b>(done)</b>
 * **\<RelationshipEdge/\>**: The custom edge we designed. Renders the 90-degree step line, the center diamond, and the two floating cardinality inputs (1, N, M, etc.). <b>(done)</b> 
-* **\<ValidationSidebar/\>**: Slides out when the user clicks "Generate". Displays global errors (e.g., "Table 'Orders' is completely disconnected").  
+* **\<ValidationConsole/\>**: Slides out when the user clicks "Generate". Displays global errors (e.g., "Table 'Orders' is completely disconnected").  <b>(done)</b>
 * **\<SqlOutputModal/\>**: A popup window displaying the final, formatted DDL SQL script with a "Copy to Clipboard" button.<b>(done)</b>
 
-### **3\. The State Management (Zustand)**
+### **3\. The State Management (Zustand)** <b>(done)</b>
 
 Your useDiagramStore.ts file will act as the brain, holding:
 

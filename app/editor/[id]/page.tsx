@@ -228,9 +228,9 @@ export default function EditorPage() {
         // The 0th index is the index of the entity in our compressedData array!
         const entityIndex = issue.path[0] as number;
         const brokenEntity = compressedData[entityIndex];
-
         // Clean up the error message for the user
         const fieldName = issue.path[issue.path.length - 1] as string; // e.g., "dataType"
+        
         const customMessage = `Table '${brokenEntity.data.label}' has an error in '${fieldName}': ${issue.message}`;
 
         return {

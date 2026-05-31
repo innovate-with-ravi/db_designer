@@ -1,9 +1,11 @@
-import React, { useState, useRef, useCallback } from 'react';
+import React, { useState, useRef, useCallback, useEffect } from 'react';
 import { useReactFlow } from '@xyflow/react';
-import useDiagramStore from '@/store/useDiagramStore';
+import useDiagramStore, { ValidationError } from '@/store/useDiagramStore';
+import { compileDiagramState } from '@/lib/compiler';
+import { databaseSchema } from '@/lib/schema';
 
 export default function ValidationConsole() {
-    const { globalErrors, setGlobalErrors, setEntityExpanded, nodes, activeErrorNodeId, setActiveErrorNodeId } = useDiagramStore();
+    const { globalErrors, setGlobalErrors, setEntityExpanded, nodes, edges, activeErrorNodeId, setActiveErrorNodeId, validateDiagram } = useDiagramStore();
     const { setCenter } = useReactFlow();
 
     const isOpen = globalErrors.length > 0;
@@ -36,6 +38,44 @@ export default function ValidationConsole() {
         document.addEventListener('mouseup', handleMouseUp);
         document.body.style.cursor = 'row-resize'; // Show resize cursor globally while dragging
     };
+
+    // 🌟 THE LIVE RE-VALIDATION ENGINE
+    useEffect(() => {
+        if (!isOpen) return;
+
+        const debounceTimer = setTimeout(() => {
+            // 🌟 2. FIX: Run Topological Validation FIRST (Just like EditorPage!)
+            const isTopologicallyValid = validateDiagram();
+
+            // If it fails, validateDiagram already updated globalErrors.
+            // We return immediately so Zod doesn't overwrite the topological errors!
+            if (!isTopologicallyValid) return;
+
+            // 3. If Topology is clean, run the Zod Schema
+            const compressedData = compileDiagramState(nodes, edges);
+            const validationResult = databaseSchema.safeParse(compressedData);
+
+            if (validationResult.success) {
+                setGlobalErrors([]);
+            } else {
+                const remainingErrors: ValidationError[] = validationResult.error.issues.map((issue) => {
+                    const entityIndex = issue.path[0] as number;
+                    const brokenEntity = compressedData[entityIndex];
+                    const fieldName = issue.path[issue.path.length - 1] as string;
+
+                    return {
+                        message: `Table '${brokenEntity.data.label}' has an error in '${fieldName}': ${issue.message}`,
+                        nodeId: brokenEntity.id
+                    };
+                });
+                setGlobalErrors(remainingErrors);
+            }
+        }, 500);
+
+        return () => clearTimeout(debounceTimer);
+
+        // Added validateDiagram to the dependency array to satisfy React hooks
+    }, [nodes, edges, isOpen, setGlobalErrors, validateDiagram]);
 
     const handleFixClick = (nodeId: string | null) => {
         if (!nodeId) return;
