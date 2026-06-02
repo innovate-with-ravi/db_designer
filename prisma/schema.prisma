@@ -28,13 +28,13 @@ model User {
   createdAt DateTime  @default(now())
   updatedAt DateTime  @updatedAt
 
-  diagrams Diagram[]
+  diagrams Diagram[] // if Diagram gets deleted then it must also delete from here
 }
 
 // NextAuth: Stores Google OAuth Tokens
 model Account {
   id                       String  @id @default(cuid())
-  userId                   String  @unique
+  userId                   String
   type                     String
   provider                 String
   providerAccountId        String

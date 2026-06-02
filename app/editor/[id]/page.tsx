@@ -21,6 +21,7 @@ import ValidationConsole from '@/app/components/ui/ValidationConsole';
 import { z } from 'zod';
 import { databaseSchema } from '@/lib/schema';
 import { ValidationError } from '@/store/useDiagramStore';
+import EditorHeader from '@/app/components/EditorHeader';
 
 // Define these OUTSIDE the component to prevent unnecessary recreation
 const nodeTypes = {
@@ -230,7 +231,7 @@ export default function EditorPage() {
         const brokenEntity = compressedData[entityIndex];
         // Clean up the error message for the user
         const fieldName = issue.path[issue.path.length - 1] as string; // e.g., "dataType"
-        
+
         const customMessage = `Table '${brokenEntity.data.label}' has an error in '${fieldName}': ${issue.message}`;
 
         return {
@@ -266,7 +267,7 @@ export default function EditorPage() {
   return (
     // 1. Master wrapper is now a Flex Column
     <div className="w-screen h-screen flex flex-col overflow-hidden bg-gray-50">
-
+      <EditorHeader title='test-er' nodes={nodes} edges={edges} />
       <ReactFlowProvider>
 
         {/* 2. TOP ROW: The Workspace (takes up all remaining space) */}
