@@ -28,11 +28,13 @@ Your useDiagramStore.ts file will act as the brain, holding:
 * edges: Array of all lines connecting the tables.  
 * globalErrors: Array of structural errors generated before SQL compilation.
 
+__________________
+
 ### **4\. The Backend Engine (Next.js API Routes)**
 
 * api/diagrams/route.ts: (GET/POST) Fetches a user's saved diagrams or creates a new one in your MySQL database.  
 * api/diagrams/\[id\]/route.ts: (PUT/DELETE) Auto-saves diagram changes and deletes projects.  
-* api/generate-sql/route.ts: **The Crown Jewel.** This route takes the JSON from Zustand, validates it globally (using Zod), and translates the nodes and edges into a raw SQL string.
+* api/generate-sql/route.ts: **The Crown Jewel.** This route takes the JSON from Zustand, validates it globally (using Zod), and translates the nodes and edges into a raw SQL string. -> notice we did this on client side. I also added color-coding on server side using shiki library & added code in a server-action action/generateSqlHtml.ts. (share code of generateSqlHtml & sqlGenerator ). I think this is rubbish cause or  sqlGenerator.ts file runs on server only
 
 ### **5\. The Database Schema (MySQL)**
 

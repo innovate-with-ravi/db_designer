@@ -1,0 +1,69 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Get a free hosted Postgres database in seconds: `npx create-db`\
+
+// this file is similar to models/User.js, Diagram.js in mongoose
+// which helps us to create DB models
+
+generator client {
+  provider = "prisma-client"
+  output   = "../generated/prisma"
+}
+
+datasource db {
+  provider = "mysql"
+}
+
+// 1. Users Table (Ready for NextAuth)
+model User {
+  id       String    @id @default(cuid())
+  email    String    @unique
+  name     String?
+  // A user can have many diagrams
+  diagrams Diagram[]
+}
+
+// 2. Diagrams Table (The Project Hub)
+model Diagram {
+  id        String   @id @default(cuid())
+  title     String
+  updatedAt DateTime @updatedAt
+
+  // to which user this diagram belongs
+  userId String
+  // Foreign Key relation back to the User
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  // if a user gets deleted, delete all diagrams which have userId referencing to that user's id
+
+  // A diagram contains many nodes and edges
+  nodes DiagramNode[]
+  edges DiagramEdge[]
+}
+
+// 3. Diagram Nodes Table
+model DiagramNode {
+  id             String @id // We will save the exact React Flow 'node-12345' ID here
+  type           String
+  label          String
+  x_pos          Float
+  y_pos          Float
+  node_data_json Json // Stores the hiddenAttributes, primaryKey, etc.
+
+  // Foreign Key relation back to the Diagram
+  diagramId String
+  diagram   Diagram @relation(fields: [diagramId], references: [id], onDelete: Cascade)
+}
+
+// 4. Diagram Edges Table
+model DiagramEdge {
+  id                 String @id // We will save the exact React Flow 'edge-12345' ID here
+  source_node        String
+  target_node        String
+  source_cardinality String
+  target_cardinality String
+
+  diagramId String
+  // Foreign Key relation back to the Diagram
+  diagram   Diagram @relation(fields: [diagramId], references: [id], onDelete: Cascade)
+}

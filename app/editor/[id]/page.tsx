@@ -246,10 +246,10 @@ export default function EditorPage() {
 
 
     // generating color-coded html for sql
-    // 2. Generate the SQL string
+    // 2. Generate the SQL string -> runs on browser
     const finalSql = generateMySQL(compressedData, edges);
 
-    // 3. Generate highlighted HTML
+    // 3. Generate highlighted HTML -> runs on server
     const htmlCode = await generateSqlHtml(finalSql);
 
     // 4. Open the Modal
