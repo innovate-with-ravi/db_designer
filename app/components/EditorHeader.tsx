@@ -2,25 +2,44 @@
 
 import { useTransition } from "react";
 import { saveDiagram } from "@/action/saveDiagram";
+import { useRouter } from 'next/navigation'
 
 type EditorHeaderProps = {
+    id: string;
     title: string;
     nodes: any[];
     edges: any[];
 }
 
-export default function EditorHeader({ title, nodes, edges }: EditorHeaderProps) {
+export default function EditorHeader({ id, title, nodes, edges }: EditorHeaderProps) {
     const [isPending, startTransition] = useTransition();
+    const router = useRouter()
 
     const handleSave = () => {
-        // Trigger the server action inside a transition for native loading handling
-
-        // when startTransition is running, isPending auto. becomes true
         startTransition(async () => {
-            const result = await saveDiagram(title, nodes, edges);
+            let result: any;
+
+            if (id === 'new') {
+                result = await saveDiagram(title, nodes, edges);// it's a serverAction => no .json() parsing
+                if (result.success) {
+                    router.push(`/editor/${result.diagramId}`);
+                }
+            } else {
+                // 1. Await the network response
+                const response = await fetch(`/api/diagrams/${id}`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ title, nodes, edges }),
+                });
+
+                // 2. Await the JSON body parsing!
+                result = await response.json();// parse response to json
+            }
 
             if (result.success) {
-                alert(`Diagram saved successfully! Generated ID: ${result.diagramId}`);
+                // Unify the ID depending on whether it came from the Action or the API
+                const savedId = result.diagramId || result.diagram?.id;
+                alert(`Diagram saved successfully! Generated ID: ${savedId}`);
             } else {
                 alert(`Error: ${result.error}`);
             }

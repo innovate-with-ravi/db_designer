@@ -102,13 +102,18 @@ model DiagramNode {
 
 // 4. Diagram Edges Table
 model DiagramEdge {
-  id                 String @id // We will save the exact React Flow 'edge-12345' ID here
+  id                 String  @id
   source_node        String
   target_node        String
-  source_cardinality String
-  target_cardinality String
+  type               String
+  source_cardinality String?
+  target_cardinality String?
+  label              String?
+
+  // 🌟 NEW: Track the exact connection ports!
+  source_handle String?
+  target_handle String?
 
   diagramId String
-  // Foreign Key relation back to the Diagram
   diagram   Diagram @relation(fields: [diagramId], references: [id], onDelete: Cascade)
 }

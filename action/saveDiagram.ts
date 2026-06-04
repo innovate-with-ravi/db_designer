@@ -7,11 +7,14 @@ export async function saveDiagram(title: string, nodes: any[], edges: any[]) {
     try {
         // 1. Gatekeeper: Ensure the user is logged in
         const session = await auth();
-        if (!session?.user?.id) {// fix: session's user obj don't have an id
+        if (!session?.user?.id) {
             throw new Error("Unauthorized. Please log in to save diagrams.");
         }
 
         const userId = session.user.id;
+
+        if (!nodes.length)
+            throw new Error("Can't save an EMPTY Diagram.");
 
         // 2. The Prisma Transaction: Save everything atomically
         const newDiagram = await prisma.diagram.create({
@@ -31,6 +34,7 @@ export async function saveDiagram(title: string, nodes: any[], edges: any[]) {
                         node_data_json: node.data,
                     }))
                 },
+                // Inside saveDiagram.ts
                 edges: {
                     create: edges.map(edge => ({
                         id: edge.id,
@@ -38,6 +42,12 @@ export async function saveDiagram(title: string, nodes: any[], edges: any[]) {
                         target_node: edge.target,
                         source_cardinality: edge.data?.sourceMaximumCardinality || '1',
                         target_cardinality: edge.data?.targetMaximumCardinality || 'N',
+                        label: edge.data?.label || 'REL',
+                        type: edge.type || 'default',
+
+                        // 🌟 Catch the exact connection ports
+                        source_handle: edge.sourceHandle || null,
+                        target_handle: edge.targetHandle || null,
                     }))
                 }
             }
@@ -47,6 +57,6 @@ export async function saveDiagram(title: string, nodes: any[], edges: any[]) {
 
     } catch (error) {
         console.error("Failed to save diagram:", error);
-        return { success: false, error: "Database error occurred." };
+        return { success: false, error: `Database error occurred: ${error}` };
     }
 }

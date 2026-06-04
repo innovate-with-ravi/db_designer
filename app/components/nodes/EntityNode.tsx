@@ -10,11 +10,6 @@ const EntityNode = ({ data, id }: any) => {
     // Pull the specific actions from YOUR global brain
     const { activeExpandedEntityId, updateNodeData, setEntityExpanded, activeErrorNodeId, nodes, edges } = useDiagramStore();
 
-    useEffect(() => {
-        setEntityExpanded(id)// activeEntity when it's loaded into canvas
-    }, [])
-
-
     // 2. The 80/20 Lightweight Error Check (Runs only when this node updates)
     // memoize the hasError's value & re-calculate/update value only when change occurs in one of : data.hiddenAttributes, visual-attributes(nodes), 
     // i.e. don't calculate on every re-render

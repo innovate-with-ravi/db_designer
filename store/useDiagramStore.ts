@@ -43,25 +43,31 @@ interface DiagramState {
   validateDiagram: () => boolean;
   activeErrorNodeId: string | null;
   setActiveErrorNodeId: (id: string | null) => void;
+
+  setDiagram: (nodes: any[], edges: any[]) => void;
 }
 
 // 2. Create the actual Zustand store 
 // // this is our useDiagramStore hook that we can use in our components to get parts (nodes, edges) of the store and call actions (addNode etc.)
 const useDiagramStore = create<DiagramState>((set, get) => ({
-  nodes: [
-    // { id: '1', type: 'entity', position: { x: 250, y: 300 }, data: { label: 'STUDENT' } },
-    // { id: '2', type: 'attribute', position: { x: 450, y: 150 }, data: { label: 'roll_no', attributeType: 'key' } },
-    // { id: '3', type: 'attribute', position: { x: 250, y: 100 }, data: { label: 'name', attributeType: 'simple' } }
-  ],
+  nodes: [],
   edges: [],
 
   activeExpandedEntityId: null, // Starts as null
 
   globalErrors: [],
   setGlobalErrors: (errors) => set({ globalErrors: errors }),
-  
+
   activeErrorNodeId: null,
   setActiveErrorNodeId: (id) => set({ activeErrorNodeId: id }),
+
+  setDiagram: (nodes, edges) => set({
+    nodes,
+    edges,
+    globalErrors: [],
+    activeExpandedEntityId: null,
+    activeErrorNodeId: null
+  }),
 
   validateDiagram: () => {
     const { nodes, edges } = get();
