@@ -1,5 +1,59 @@
 import { z } from 'zod';
 
+const SQL_RESERVED_WORDS = new Set([
+    // --- Common Nouns (The most frequent offenders) ---
+    "USER",       // #1 Collision: "SELECT * FROM user" fails
+    "GROUP",      // #2 Collision: "GROUP BY" clause conflict
+    "ORDER",      // #3 Collision: "ORDER BY" clause conflict
+    "KEY",        // Used for indexes, often conflicts with 'api_key' or 'foreign_key'
+    "KEYS",       // Plural form
+    "INDEX",      // Database index
+    "RANK",       // Reserved in MySQL 8.0+ (Window functions)
+    "SYSTEM",     // Reserved in MySQL 8.0+
+    "FUNCTION",   // Stored procedures
+    "RANGE",      // Partitioning
+    "ROW",        // Reserved in MySQL 8.0.2+
+    "ROWS",       // Reserved in MySQL 8.0.2+
+    "VALUE",      // Often used for generic data columns (Note: 'VALUES' is the strict reserved form, but 'VALUE' is a keyword)
+    "VALUES",     // Strict reserved word
+    "CHECK",      // Constraint keyword
+    "CONDITION",  // Error handling
+    "USAGE",      // Grant usage
+
+    // --- Date & Time Nouns ---
+    // Note: 'DATE', 'TIME', 'TIMESTAMP', and 'YEAR' are NOT reserved in all contexts 
+    // but are highly dangerous due to function name collisions. 
+    // The ones below are STRICTLY reserved.
+    "CURRENT_DATE",
+    "CURRENT_TIME",
+    "CURRENT_TIMESTAMP",
+    "CURRENT_USER",
+    "UTC_DATE",
+    "UTC_TIME",
+    "UTC_TIMESTAMP",
+
+    // --- Execution & Logic (Verbs) ---
+    "ADD", "ALL", "ALTER", "AND", "AS",
+    "BETWEEN", "BOTH", "BY",
+    "CALL", "CASE", "CHANGE", "CONSTRAINT", "CREATE", "CROSS",
+    "DELETE", "DESC", "DESCRIBE", "DISTINCT", "DROP",
+    "EACH", "ELSE", "ELSEIF", "EXCEPT", "EXISTS", "EXPLAIN",
+    "FALSE", "FETCH", "FOR", "FORCE", "FOREIGN", "FROM", "FULL",
+    "GRANT", "HAVING",
+    "IF", "IN", "INNER", "INSERT", "INTERVAL", "INTO", "IS",
+    "JOIN", "LEADING", "LEFT", "LIKE", "LIMIT", "LOCK", "LOOP",
+    "MATCH", "NATURAL", "NOT", "NULL",
+    "ON", "OPTION", "OR", "OUT", "OUTER", "OVER",
+    "PRIMARY", "PROCEDURE",
+    "READ", "READS", "REFERENCES", "RELEASE", "RENAME", "REPEAT", "REPLACE",
+    "REQUIRE", "RETURN", "REVOKE", "RIGHT",
+    "SELECT", "SET", "SHOW", "SIGNAL", "START",
+    "TABLE", "THEN", "TO", "TRAILING", "TRIGGER", "TRUE",
+    "UNION", "UNIQUE", "UNLOCK", "UNSIGNED", "UPDATE", "USE", "USING",
+    "WHEN", "WHERE", "WHILE", "WINDOW", "WITH", "WRITE",
+    "XOR"
+]);
+
 // 1. The Attribute Schema (Handles BOTH flat hidden attributes and nested visual nodes)
 export const attributeSchema = z.preprocess(
     (attr: any) => ({
@@ -16,7 +70,11 @@ export const attributeSchema = z.preprocess(
             return false;
         }
         return true;
-    }, { message: "VARCHAR/CHAR requires a size", path: ["size"] })
+    }, { message: "VARCHAR/CHAR requires a size", path: ["size"] }
+    ).refine((attr) => {
+        // THE GATEKEEPER: Check if the uppercase name is in our Set
+        return !SQL_RESERVED_WORDS.has(attr.name.toUpperCase());
+    }, { message: `Attribute Name cannot be an SQL reserved keyword`, path: ["name"] })
 );
 // 2. The Entity Schema
 export const entitySchema = z.object({
@@ -41,7 +99,12 @@ export const entitySchema = z.object({
 }, {
     message: "Duplicate column names are not allowed",
     path: ["attributes"],
-})
+}).refine((entity) => {
+    // THE GATEKEEPER: Check if the uppercase name is in our Set
+    return !SQL_RESERVED_WORDS.has(entity.data.label.toUpperCase());
+}, { message: `Entity Name cannot be an SQL reserved keyword`, path: ["name"] })
+
+
 // (Note: We removed the old pkCount == 1 refine block because primaryKey is now a single string, so it physically cannot be more than 1).
 
 // 3. The Master Schema

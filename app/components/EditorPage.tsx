@@ -216,31 +216,30 @@ export default function EditorPage() {
 
     // The database stores data in a flat format (e.g., x_pos, y_pos), but React Flow requires a highly specific nested object (position: { x, y }). We have to write a "Data Mapper" to translate the MySQL rows back into React Flow objects.
 
+    // 🌟 1. Add a hydration lock
+    const [isHydrating, setIsHydrating] = useState(true);
+
     // 🌟 THE HYDRATION ENGINE
     useEffect(() => {
         const diagramId = params.id;
 
-        // If it's a brand new project, wipe the canvas clean and stop.
-        if (diagramId === 'new') {
-            setDiagram([], []);
-            return;
-        }
-
-        // Otherwise, fetch the saved project from MySQL
         const loadProject = async () => {
+            if (diagramId === 'new') {
+                setDiagram([], []);
+                setIsHydrating(false); // Unlock UI
+                return;
+            }
+
             const response = await getDiagramById(diagramId as string);
 
             if (response.success && response.diagram) {
-                // 1. Map MySQL Nodes back to React Flow Nodes
                 const rfNodes = response.diagram.nodes.map((n: any) => ({
                     id: n.id,
                     type: n.type,
                     position: { x: n.x_pos, y: n.y_pos },
-                    // Prisma automatically parses the Json column back into a JS Object!
                     data: n.node_data_json
                 }));
 
-                // 2. Map MySQL Edges back to React Flow Edges
                 const rfEdges = response.diagram.edges.map((e: any) => {
                     const sourceNode = response.diagram.nodes.find((n: any) => n.id === e.source_node);
                     const targetNode = response.diagram.nodes.find((n: any) => n.id === e.target_node);
@@ -250,11 +249,8 @@ export default function EditorPage() {
                         id: e.id,
                         source: e.source_node,
                         target: e.target_node,
-
-                        // 🌟 Re-inject the connection ports!
                         sourceHandle: e.source_handle,
                         targetHandle: e.target_handle,
-
                         type: isEntityToEntity ? 'relationship' : 'default',
                         data: isEntityToEntity ? {
                             sourceMaximumCardinality: e.source_cardinality,
@@ -264,10 +260,11 @@ export default function EditorPage() {
                     };
                 });
 
-                // 3. Inject them into the global brain
                 setDiagram(rfNodes, rfEdges);
+                setIsHydrating(false); // 🌟 Unlock UI after data is inside Zustand!
             } else {
-                alert("Failed to load diagram. It may have been deleted or you don't have permission.");
+                alert("Failed to load diagram.");
+                setIsHydrating(false);
             }
         };
 
@@ -327,6 +324,16 @@ export default function EditorPage() {
         if (!nodes.some((n) => n.id == activeExpandedEntityId))
             setEntityExpanded(null)
     }, [nodes])
+
+    // 🌟 2. The Loading Screen
+    if (isHydrating) {
+        return (
+            <div className="w-screen h-screen flex flex-col items-center justify-center bg-slate-50 text-slate-500">
+                <div className="animate-spin text-4xl mb-4">🔄</div>
+                <h2 className="text-xl font-bold">Loading Workspace...</h2>
+            </div>
+        );
+    }
 
     return (
         // 1. Master wrapper is now a Flex Column

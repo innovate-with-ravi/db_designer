@@ -36,7 +36,7 @@ __________________
 * api/diagrams/\[id\]/route.ts: (PUT/DELETE) Auto-saves diagram changes and deletes projects.  
 * api/generate-sql/route.ts: **The Crown Jewel.** This route takes the JSON from Zustand, validates it globally (using Zod), and translates the nodes and edges into a raw SQL string. -> notice we did this on client side. I also added color-coding on server side using shiki library & added code in a server-action action/generateSqlHtml.ts. (share code of generateSqlHtml & sqlGenerator ). I think this is rubbish cause or  sqlGenerator.ts file runs on server only
 
-### **5\. The Database Schema (MySQL)**
+### **5\. The Database Schema (MySQL)** <b>(done)</b>
 
 Your own database to save user projects.
 

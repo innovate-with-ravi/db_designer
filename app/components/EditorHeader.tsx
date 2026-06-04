@@ -1,6 +1,6 @@
 "use client";
 
-import { useTransition } from "react";
+import { useTransition, useEffect, useRef, useState, useMemo } from "react";
 import { saveDiagram } from "@/action/saveDiagram";
 import { useRouter } from 'next/navigation'
 
@@ -13,33 +13,117 @@ type EditorHeaderProps = {
 
 export default function EditorHeader({ id, title, nodes, edges }: EditorHeaderProps) {
     const [isPending, startTransition] = useTransition();
-    const router = useRouter()
+    const router = useRouter();
 
-    const handleSave = () => {
+    const [syncStatus, setSyncStatus] = useState<"Saved ✅" | "Unsaved changes..." | "Saving...">("Saved ✅");
+
+    // 🌟 1. THE DATA HASH: Strip out all React Flow "noise" (selected, dragging, measured, width).
+    // This string will ONLY change if a position, label, attribute, or edge actually changes.
+    const currentPayloadString = useMemo(() => {
+        const cleanNodes = nodes.map(n => ({
+            id: n.id,
+            type: n.type,
+            position: n.position,
+            data: n.data
+        }));
+
+        const cleanEdges = edges.map(e => ({
+            id: e.id,
+            source: e.source,
+            target: e.target,
+            sourceHandle: e.sourceHandle,
+            targetHandle: e.targetHandle,
+            type: e.type,
+            data: e.data
+        }));
+
+        return JSON.stringify({ title, nodes: cleanNodes, edges: cleanEdges });
+    }, [nodes, edges, title]);
+
+    // 🌟 2. Keep track of the last successfully saved string
+    const lastSavedPayload = useRef(currentPayloadString);
+    const isFirstRender = useRef(true);
+
+    // 🌟 3. The Smart Auto-Save Engine
+    useEffect(() => {
+        if (isFirstRender.current) {
+            isFirstRender.current = false;
+            return;
+        }
+
+        // GATEKEEPER: If the clean data hasn't changed (e.g., they just clicked to 'select' a node), ABORT!
+        if (currentPayloadString === lastSavedPayload.current) {
+            return;
+        }
+
+        setSyncStatus("Unsaved changes...");
+        const payloadToSave = JSON.parse(currentPayloadString); // Parse it back into a JS object for the API
+
+        const autoSaveTimer = setTimeout(async () => {
+            if (id !== 'new') {
+                setSyncStatus("Saving...");
+                try {
+                    await fetch(`/api/diagrams/${id}`, {
+                        method: 'PUT',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(payloadToSave),
+                    });
+
+                    setSyncStatus("Saved ✅");
+                    lastSavedPayload.current = currentPayloadString; // Update the safe point!
+
+                } catch (error) {
+                    console.error("Auto-save failed", error);
+                    setSyncStatus("Unsaved changes..."); // Revert on failure
+                }
+            }
+        }, 3000);
+
+        const handleVisibilityChange = () => {
+            // Because we pass `syncStatus` into the dependency array, this will always know if changes exist
+            if (document.visibilityState === 'hidden' && syncStatus === "Unsaved changes...") {
+                if (id !== 'new') {
+                    fetch(`/api/diagrams/${id}`, {
+                        method: 'PUT',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(payloadToSave),
+                        keepalive: true
+                    });
+                }
+            }
+        };
+
+        document.addEventListener("visibilitychange", handleVisibilityChange);
+
+        return () => {
+            clearTimeout(autoSaveTimer);
+            document.removeEventListener("visibilitychange", handleVisibilityChange);
+        };
+
+    }, [currentPayloadString, id, syncStatus]); // Only run when the HASH changes or status updates
+
+    // 🌟 4. The Force Save (Manual Override)
+    const handleForceSave = () => {
         startTransition(async () => {
+            setSyncStatus("Saving...");
             let result: any;
+            const payloadToSave = JSON.parse(currentPayloadString);
 
             if (id === 'new') {
-                result = await saveDiagram(title, nodes, edges);// it's a serverAction => no .json() parsing
-                if (result.success) {
-                    router.push(`/editor/${result.diagramId}`);
-                }
+                result = await saveDiagram(title, payloadToSave.nodes, payloadToSave.edges);
+                if (result.success) router.push(`/editor/${result.diagramId}`);
             } else {
-                // 1. Await the network response
                 const response = await fetch(`/api/diagrams/${id}`, {
                     method: 'PUT',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ title, nodes, edges }),
+                    body: JSON.stringify(payloadToSave),
                 });
-
-                // 2. Await the JSON body parsing!
-                result = await response.json();// parse response to json
+                result = await response.json();
             }
 
             if (result.success) {
-                // Unify the ID depending on whether it came from the Action or the API
-                const savedId = result.diagramId || result.diagram?.id;
-                alert(`Diagram saved successfully! Generated ID: ${savedId}`);
+                setSyncStatus("Saved ✅");
+                lastSavedPayload.current = currentPayloadString;
             } else {
                 alert(`Error: ${result.error}`);
             }
@@ -51,11 +135,14 @@ export default function EditorHeader({ id, title, nodes, edges }: EditorHeaderPr
             <h1 className="text-xl font-bold">{title || "Untitled Diagram"}</h1>
 
             <button
-                onClick={handleSave}
-                disabled={isPending}
-                className="bg-emerald-600 hover:bg-emerald-700 disabled:bg-slate-700 text-white font-semibold px-5 py-2 rounded-md transition-colors"
+                onClick={handleForceSave}
+                disabled={isPending || syncStatus === "Saved ✅"}
+                className={`font-semibold px-5 py-2 rounded-md transition-colors ${syncStatus === "Saved ✅"
+                    ? "bg-slate-800 text-slate-400 cursor-default"
+                    : "bg-emerald-600 hover:bg-emerald-700 text-white shadow-lg"
+                    }`}
             >
-                {isPending ? "Saving to MySQL..." : "Save Diagram"}
+                {isPending ? "Saving..." : syncStatus}
             </button>
         </header>
     );
