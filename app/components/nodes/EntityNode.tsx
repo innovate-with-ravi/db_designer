@@ -84,14 +84,14 @@ const EntityNode = ({ data, id }: any) => {
     const targetGlow = isTargeted ? 'ring-4 ring-red-500 shadow-[0_0_25px_rgba(239,68,68,0.9)] animate-pulse' : '';
 
     return (
-        <div className="relative">
+        <div className="relative group">
             <div
                 onDoubleClick={handleDoubleClick}
                 onBlur={() => setIsEditing(false)}
                 // Apply the glow class to the main wrapper!
                 className={`w-40 h-12 bg-white rounded-md flex items-center justify-center transition-all duration-300 ${borderStyle} ${errorBorder} ${targetGlow}`}
                 onClick={handleClick}
-                onFocus={() => { setEntityExpanded(id) }}
+                // onFocus={() => { setEntityExpanded(id) }}
             >
                 {/* The Warning Badge */}
                 {hasError && (
@@ -101,10 +101,11 @@ const EntityNode = ({ data, id }: any) => {
                     </div>
                 )}
 
-                <Handle type="source" position={Position.Top} id="top" />
-                <Handle type="source" position={Position.Right} id="right" />
-                <Handle type="source" position={Position.Bottom} id="bottom" />
-                <Handle type="source" position={Position.Left} id="left" />
+                {/* 🌟 The Ghost Handles (Only visible on hover) */}
+                <Handle type="source" position={Position.Top} id="top" className="w-2 h-2 border-none bg-blue-400 opacity-0 group-hover:opacity-100 transition-opacity" />
+                <Handle type="source" position={Position.Right} id="right" className="w-2 h-2 border-none bg-blue-400 opacity-0 group-hover:opacity-100 transition-opacity" />
+                <Handle type="source" position={Position.Bottom} id="bottom" className="w-2 h-2 border-none bg-blue-400 opacity-0 group-hover:opacity-100 transition-opacity" />
+                <Handle type="source" position={Position.Left} id="left" className="w-2 h-2 border-none bg-blue-400 opacity-0 group-hover:opacity-100 transition-opacity" />
 
                 {!isEditing ? (
                     <p className='line-clamp-1 text-center'>{label}</p>

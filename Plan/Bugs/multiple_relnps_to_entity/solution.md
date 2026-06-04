@@ -1,3 +1,1 @@
-Look at the official React Flow documentation for "Floating Edges". You will create a CustomEdge that uses their getEdgeParams function. This allows your edges to slide smoothly around the perimeter of the table as the user drags it, completely eliminating cardinality overlaps!
-
-To implement the Floating Edges for the cardinality fix, do you want to attempt building the math for the CustomEdge yourself using the React Flow docs, or would you like me to walk you through the intersection geometry?
+Look at the official React Flow documentation for "Floating Edges". You will create a ``CustomEdge`` that uses their ``getEdgeParams`` function. This allows your edges to slide smoothly around the perimeter of the table as the user drags it, completely eliminating cardinality overlaps!

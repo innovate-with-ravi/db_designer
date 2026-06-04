@@ -194,11 +194,11 @@ const useDiagramStore = create<DiagramState>((set, get) => ({
 
     // 2. Build the final edge object
     const newEdge = {
-      ...connection, type: finalEdgeType, data: isEntityToEntity ? { label: 'REL' } : {}
+      ...connection, id: `edge-${Date.now()}-${Math.floor(Math.random() * 10000)}`, type: finalEdgeType, data: isEntityToEntity ? { label: 'REL' } : {}
     };
 
-    // 3. Save it to state
-    set({ edges: addEdge(newEdge, state.edges) });
+    // 4. Force it into the state array directly
+    set({ edges: [...state.edges, newEdge] });
 
     // 3. Is one of them a Key attribute?
     const isSourceKey = sourceNode.data?.attributeType === 'key';

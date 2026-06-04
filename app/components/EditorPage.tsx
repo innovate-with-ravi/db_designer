@@ -96,7 +96,7 @@ function DnDCanvas() {
 
         if (!sourceNode || !targetNode) return false;
 
-        // Prevent connecting entity to entity and attribute to attribute
+        // Prevent connecting attribute to attribute
         if (sourceNode.type == 'attribute' && targetNode.type == 'attribute') return false;
 
         // 2. Are they connecting an Entity to an Attribute?
@@ -199,6 +199,7 @@ function DnDCanvas() {
                 onDragOver={onDragOver} // Allow the drop
                 connectionMode={ConnectionMode.Loose}
                 isValidConnection={isValidConnection}
+                fitView
             >
                 <Background />
                 <Controls />

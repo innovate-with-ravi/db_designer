@@ -44,23 +44,24 @@ export default function EditorHeader({ id, title, nodes, edges }: EditorHeaderPr
     const lastSavedPayload = useRef(currentPayloadString);
     const isFirstRender = useRef(true);
 
-    // 🌟 3. The Smart Auto-Save Engine
+    // 🌟 3. The Auto-Save Engine
     useEffect(() => {
         if (isFirstRender.current) {
             isFirstRender.current = false;
             return;
         }
 
-        // GATEKEEPER: If the clean data hasn't changed (e.g., they just clicked to 'select' a node), ABORT!
-        if (currentPayloadString === lastSavedPayload.current) {
-            return;
-        }
+        if (currentPayloadString === lastSavedPayload.current) return;
 
         setSyncStatus("Unsaved changes...");
-        const payloadToSave = JSON.parse(currentPayloadString); // Parse it back into a JS object for the API
+        const payloadToSave = JSON.parse(currentPayloadString);
 
         const autoSaveTimer = setTimeout(async () => {
-            if (id !== 'new') {
+            if (id === 'new') {
+                return; // Wait for the user to click the manual save button
+            }
+
+            if (syncStatus === 'Unsaved changes...') {
                 setSyncStatus("Saving...");
                 try {
                     await fetch(`/api/diagrams/${id}`, {
@@ -68,22 +69,19 @@ export default function EditorHeader({ id, title, nodes, edges }: EditorHeaderPr
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify(payloadToSave),
                     });
-
                     setSyncStatus("Saved ✅");
-                    lastSavedPayload.current = currentPayloadString; // Update the safe point!
-
+                    lastSavedPayload.current = currentPayloadString;
                 } catch (error) {
-                    console.error("Auto-save failed", error);
-                    setSyncStatus("Unsaved changes..."); // Revert on failure
+                    setSyncStatus("Unsaved changes...");
                 }
             }
         }, 3000);
 
-        const handleVisibilityChange = () => {
-            // Because we pass `syncStatus` into the dependency array, this will always know if changes exist
+        const handleVisibilityChange = async () => {
             if (document.visibilityState === 'hidden' && syncStatus === "Unsaved changes...") {
+                // 🛑 THE FIX: Don't force-save empty canvases on tab close
                 if (id !== 'new') {
-                    fetch(`/api/diagrams/${id}`, {
+                    await fetch(`/api/diagrams/${id}`, {
                         method: 'PUT',
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify(payloadToSave),
@@ -99,8 +97,7 @@ export default function EditorHeader({ id, title, nodes, edges }: EditorHeaderPr
             clearTimeout(autoSaveTimer);
             document.removeEventListener("visibilitychange", handleVisibilityChange);
         };
-
-    }, [currentPayloadString, id, syncStatus]); // Only run when the HASH changes or status updates
+    }, [currentPayloadString, id, syncStatus]);
 
     // 🌟 4. The Force Save (Manual Override)
     const handleForceSave = () => {

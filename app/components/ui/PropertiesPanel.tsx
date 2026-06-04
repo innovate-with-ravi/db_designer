@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import useDiagramStore from '@/store/useDiagramStore';
 
 export default function PropertiesPanel() {
@@ -37,6 +37,12 @@ export default function PropertiesPanel() {
     // The Animation Logic: We use negative margins instead of 'fixed' positioning 
     // so it stays inside the top Flex row and never overlaps the bottom console!
     const transformClass = activeExpandedEntityId ? 'mr-0' : '-mr-80';
+
+    useEffect(() => {
+        if (!nodes.some((n) => n.id == activeExpandedEntityId))
+            setEntityExpanded(null)
+    }, [activeExpandedEntityId])
+
 
     return (
         <div
