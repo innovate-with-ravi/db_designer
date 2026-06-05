@@ -1,5 +1,6 @@
-import EditorPage from '@/app/components/EditorPage'
+import EditorPage from '@/app/components/Editor/EditorPage'
 import { Metadata } from 'next';
+import { prisma } from '@/lib/prisma'
 
 type Props = {
   params: Promise<{ id: string }>;
@@ -7,9 +8,10 @@ type Props = {
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { id } = await params; //  Works perfectly
+  const er = await prisma.diagram.findFirst({ where: { id } })
 
   return {
-    title: `${id}-er`,
+    title: `${er?.title}`,
   };
 }
 

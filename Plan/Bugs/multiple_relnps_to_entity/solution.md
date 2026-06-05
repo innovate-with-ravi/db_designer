@@ -1,1 +1,0 @@
-Look at the official React Flow documentation for "Floating Edges". You will create a ``CustomEdge`` that uses their ``getEdgeParams`` function. This allows your edges to slide smoothly around the perimeter of the table as the user drags it, completely eliminating cardinality overlaps!

@@ -3,6 +3,7 @@
 import { useTransition, useEffect, useRef, useState, useMemo } from "react";
 import { saveDiagram } from "@/action/saveDiagram";
 import { useRouter } from 'next/navigation'
+import ThemeToggle from "@/app/components/ThemeToggle";
 
 type EditorHeaderProps = {
     id: string;
@@ -131,16 +132,20 @@ export default function EditorHeader({ id, title, nodes, edges }: EditorHeaderPr
         <header className="flex items-center justify-between p-4 bg-slate-900 text-white border-b border-slate-800">
             <h1 className="text-xl font-bold">{title || "Untitled Diagram"}</h1>
 
-            <button
-                onClick={handleForceSave}
-                disabled={isPending || syncStatus === "Saved ✅"}
-                className={`font-semibold px-5 py-2 rounded-md transition-colors ${syncStatus === "Saved ✅"
-                    ? "bg-slate-800 text-slate-400 cursor-default"
-                    : "bg-emerald-600 hover:bg-emerald-700 text-white shadow-lg"
-                    }`}
-            >
-                {isPending ? "Saving..." : syncStatus}
-            </button>
+            <div className="btns flex gap-5 mx-5">
+                <button
+                    onClick={handleForceSave}
+                    disabled={isPending || syncStatus === "Saved ✅"}
+                    className={`font-semibold px-5 py-2 rounded-md transition-colors ${syncStatus === "Saved ✅"
+                        ? "bg-slate-800 text-slate-400 cursor-default"
+                        : "bg-emerald-600 hover:bg-emerald-700 text-white shadow-lg"
+                        }`}
+                >
+                    {isPending ? "Saving..." : syncStatus}
+                </button>
+
+                <ThemeToggle />
+            </div>
         </header>
     );
 }

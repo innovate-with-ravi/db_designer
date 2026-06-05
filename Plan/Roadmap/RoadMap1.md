@@ -45,4 +45,15 @@ Your own database to save user projects.
 * **diagram\_nodes**: (id, diagram\_id, type, label, x\_pos, y\_pos, node\_data\_json).  
 * **diagram\_edges**: (id, diagram\_id, source\_node, target\_node, source\_cardinality, target\_cardinality).
 
-We have our map, our tech stack, and our core logic defined. To kick off the actual development phase, what part of the application do you want to build first: setting up the raw React Flow canvas to get shapes on the screen, or configuring Next.js and NextAuth so we have a secure foundation?
+### **6\. Responsiveness**
+Truth about responsiveness in a SaaS tool: The Landing Page and Dashboard must be fully responsive and work perfectly on mobile. However, complex drag-and-drop canvas interfaces (like React Flow) offer a terrible user experience on a 6-inch phone screen. The industry standard is to make the Editor "View Only" on mobile, or display a clean "Please use a desktop device to edit schemas" overlay.
+
+### **6\. Docs**
+--you can leave the docs for now, because I am thinking of a generic docs roadmap so that we don't have to create a page for every single feature in doc & going to discuss it with you later. So, for now you can just fix the navigation.
+
+I want a docs roadmap from you so that we can make a generic doc template and we don't have to write every single feature's document page. 
+Something like a generic blog's template!
+What I am thinking is we can use a tool like EJS templates to create a template for documentation that we are going to follow all over the app. 
+You can provide any better idea if you have. 
+
+or we can just complete the whole documentation in a single page or component.

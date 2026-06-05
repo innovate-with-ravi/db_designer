@@ -162,7 +162,7 @@ export default function RelationshipEdge({ id, source, target, sourceX, sourceY,
             const perpX = -baseDy / distCenter;
             const perpY = baseDx / distCenter;
 
-            const offset = totalEdges == 2 ? 80 : 60
+            const offset = 60;
 
             // Offset by offset increments
             const offsetMagnitude = (edgeIndex - (totalEdges - 1) / 2) * offset;
@@ -215,56 +215,65 @@ export default function RelationshipEdge({ id, source, target, sourceX, sourceY,
     const targetMinCard = data?.targetMinimumCardinality || '1';
     const targetMaxCard = data?.targetMaximumCardinality || 'N';
 
+    const [hasFocus, setHasFocus] = useState(false)
+
     return (
         <>
             <BaseEdge path={edgePath as string} style={{ ...style, strokeWidth: 2, stroke: '#374151' }} />
             <EdgeLabelRenderer>
-
-                {/* Source Cardinality Badge */}
-                <div style={{ position: 'absolute', transform: `translate(-50%, -50%) translate(${srcLabel.x}px, ${srcLabel.y}px)`, pointerEvents: 'all' }} className="nodrag nopan z-20" >
-                    <CardinalityBadge
-                        min={sourceMinCard} max={sourceMaxCard}
-                        nodeX={finalSourceX} nodeY={finalSourceY} labelX={srcLabel.x} labelY={srcLabel.y}
-                        onMinClick={() => updateEdgeData(id, { sourceMinimumCardinality: sourceMinCard === '1' ? '0' : '1' })}
-                        onMaxClick={() => updateEdgeData(id, { sourceMaximumCardinality: sourceMaxCard === '1' ? 'M' : '1' })}
-                    />
-                </div>
-
-                {/* The Relationship Diamond */}
-                <div style={{ position: 'absolute', transform: `translate(-50%, -50%) translate(${labelX}px, ${labelY}px)`, pointerEvents: 'all' }}
-                    className="flex items-center justify-center nodrag nopan"
-                    onMouseOver={() => setShowFlip(true)} onMouseOut={() => setShowFlip(false)}
+                <div
+                    className={hasFocus ? "relative z-10" : "relative z-0"}
+                    tabIndex={-1}
+                    onFocus={() => setHasFocus(true)}
+                    onBlur={() => setHasFocus(false)}
                 >
-                    {(isUnary && showFlip) && (
-                        <button onClick={(e) => { e.stopPropagation(); updateEdgeData(id, { isFlipped: !isFlipped }); }}
-                            className="absolute -top-6 text-[10px] bg-white border border-gray-300 hover:bg-gray-100 px-1.5 py-0.5 rounded text-gray-600 font-bold shadow-sm transition-colors z-10" title="Flip Direction" >
-                            ⟲ Flip
-                        </button>
-                    )}
-                    <div onDoubleClick={(e) => { e.stopPropagation(); setIsEditing(true); }} onBlur={() => setIsEditing(false)}
-                        className="w-16 h-16 bg-blue-50 border-2 border-blue-400 rotate-45 mx-1 flex justify-center items-center shadow-sm cursor-text hover:bg-blue-100 transition-colors pointer-events-auto"
+
+                    {/* Source Cardinality Badge */}
+                    <div style={{ position: 'absolute', transform: `translate(-50%, -50%) translate(${srcLabel.x}px, ${srcLabel.y}px)`, pointerEvents: 'all' }} className="nodrag nopan z-20" >
+                        <CardinalityBadge
+                            min={sourceMinCard} max={sourceMaxCard}
+                            nodeX={finalSourceX} nodeY={finalSourceY} labelX={srcLabel.x} labelY={srcLabel.y}
+                            onMinClick={() => updateEdgeData(id, { sourceMinimumCardinality: sourceMinCard === '1' ? '0' : '1' })}
+                            onMaxClick={() => updateEdgeData(id, { sourceMaximumCardinality: sourceMaxCard === '1' ? 'M' : '1' })}
+                        />
+                    </div>
+
+                    {/* The Relationship Diamond */}
+                    <div style={{ position: 'absolute', transform: `translate(-50%, -50%) translate(${labelX}px, ${labelY}px)`, pointerEvents: 'all' }}
+                        className="flex items-center justify-center nodrag nopan"
+                        onMouseOver={() => setShowFlip(true)} onMouseOut={() => setShowFlip(false)}
                     >
-                        <div className="-rotate-45 flex items-center justify-center w-full">
-                            {!isEditing ? (
-                                <p className="font-bold text-blue-900 text-center leading-tight line-clamp-1">{data?.label || 'REL'}</p>
-                            ) : (
-                                <input className="w-12 text-[10px] font-bold text-center outline-none bg-transparent" type="text" autoFocus
-                                    value={data?.label as string || ''}
-                                    onChange={(e) => updateEdgeData(id, { label: e.target.value.toUpperCase() })}
-                                />
-                            )}
+                        {(isUnary && showFlip) && (
+                            <button onClick={(e) => { e.stopPropagation(); updateEdgeData(id, { isFlipped: !isFlipped }); }}
+                                className="absolute -top-6 text-[10px] bg-white border border-gray-300 hover:bg-gray-100 px-1.5 py-0.5 rounded text-gray-600 font-bold shadow-sm transition-colors z-10" title="Flip Direction" >
+                                ⟲ Flip
+                            </button>
+                        )}
+                        <div onDoubleClick={(e) => { e.stopPropagation(); setIsEditing(true); }} onBlur={() => setIsEditing(false)}
+                            className="w-16 h-16 bg-blue-50 border-2 border-blue-400 rotate-45 mx-1 flex justify-center items-center shadow-sm cursor-text hover:bg-blue-100 transition-colors pointer-events-auto rounded-2xl"
+                        >
+                            <div className="-rotate-45 flex items-center justify-center w-full">
+                                {!isEditing ? (
+                                    <p className="font-bold text-blue-900 text-center leading-tight line-clamp-1">{data?.label || 'REL'}</p>
+                                ) : (
+                                    <input className="w-12 text-[10px] font-bold text-center outline-none bg-transparent" type="text" autoFocus
+                                        value={data?.label as string || ''}
+                                        onChange={(e) => updateEdgeData(id, { label: e.target.value.toUpperCase() })}
+                                    />
+                                )}
+                            </div>
                         </div>
                     </div>
-                </div>
 
-                {/* Target Cardinality Badge */}
-                <div style={{ position: 'absolute', transform: `translate(-50%, -50%) translate(${tgtLabel.x}px, ${tgtLabel.y}px)`, pointerEvents: 'all' }} className="nodrag nopan z-20" >
-                    <CardinalityBadge
-                        min={targetMinCard} max={targetMaxCard}
-                        nodeX={finalTargetX} nodeY={finalTargetY} labelX={tgtLabel.x} labelY={tgtLabel.y}
-                        onMinClick={() => updateEdgeData(id, { targetMinimumCardinality: targetMinCard === '1' ? '0' : '1' })}
-                        onMaxClick={() => updateEdgeData(id, { targetMaximumCardinality: targetMaxCard === '1' ? 'N' : '1' })}
-                    />
+                    {/* Target Cardinality Badge */}
+                    <div style={{ position: 'absolute', transform: `translate(-50%, -50%) translate(${tgtLabel.x}px, ${tgtLabel.y}px)`, pointerEvents: 'all' }} className="nodrag nopan z-20" >
+                        <CardinalityBadge
+                            min={targetMinCard} max={targetMaxCard}
+                            nodeX={finalTargetX} nodeY={finalTargetY} labelX={tgtLabel.x} labelY={tgtLabel.y}
+                            onMinClick={() => updateEdgeData(id, { targetMinimumCardinality: targetMinCard === '1' ? '0' : '1' })}
+                            onMaxClick={() => updateEdgeData(id, { targetMaximumCardinality: targetMaxCard === '1' ? 'N' : '1' })}
+                        />
+                    </div>
                 </div>
             </EdgeLabelRenderer>
         </>

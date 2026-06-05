@@ -20,7 +20,7 @@ import ValidationConsole from '@/app/components/ui/ValidationConsole';
 
 import { databaseSchema } from '@/lib/schema';
 import { ValidationError } from '@/store/useDiagramStore';
-import EditorHeader from '@/app/components/EditorHeader';
+import EditorHeader from './EditorHeader';
 import { getDiagramById } from '@/action/loadDiagram';
 import { useParams } from 'next/navigation';
 
@@ -339,7 +339,7 @@ export default function EditorPage() {
     return (
         // 1. Master wrapper is now a Flex Column
         <div className="w-screen h-screen flex flex-col overflow-hidden bg-gray-50">
-            <EditorHeader id={params.id as string} title='test-er' nodes={nodes} edges={edges} />
+            <EditorHeader id={params.id as string} title='test-er' nodes={nodes} edges={edges} />s
             <ReactFlowProvider>
 
                 {/* 2. TOP ROW: The Workspace (takes up all remaining space) */}
