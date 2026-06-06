@@ -14,17 +14,20 @@ export default function Sidebar() {
         event.dataTransfer.effectAllowed = 'move';
     };
 
-    return (
-        <div className="overflow-y-auto w-64 bg-gray-100 border-r border-gray-300 p-4 flex flex-col gap-4">
-            <h2 className="text-lg font-bold border-b pb-2">Symbols</h2>
+    // 🌟 Refactored base class to keep our JSX clean and automatically handle Dark/Light hover states
+    const itemBaseClass = "w-full h-12 bg-background flex items-center justify-center cursor-grab hover:bg-surface-hover transition-all text-foreground shadow-sm hover:shadow-md hover:border-brand-blue hover:text-brand-blue";
 
-            {/* Entity Draggable */}
+    return (
+        <div className="overflow-y-auto w-64 bg-surface border-r border-surface-border p-4 flex flex-col gap-4 transition-colors duration-300">
+            <h2 className="text-lg font-bold border-b border-surface-border pb-2 text-foreground">Symbols</h2>
+
+            {/* Entity Draggables */}
             <div>
-                <h3 className="text-sm font-semibold text-gray-500 mb-2">Entities</h3>
+                <h3 className="text-sm font-semibold text-muted-foreground mb-2">Entities</h3>
 
                 {/* Standard Entity */}
                 <div
-                    className="w-full h-12 border-2 border-black bg-white rounded-md flex items-center justify-center cursor-grab hover:bg-gray-50 mb-2"
+                    className={`${itemBaseClass} rounded-md border-2 border-foreground/40 mb-2`}
                     onDragStart={(event) => onDragStart(event, 'entity', 'standard')}
                     draggable
                 >
@@ -33,7 +36,7 @@ export default function Sidebar() {
 
                 {/* Weak Entity */}
                 <div
-                    className="w-full h-12 border-4 border-double border-black bg-white rounded-md flex items-center justify-center cursor-grab hover:bg-gray-50"
+                    className={`${itemBaseClass} rounded-md border-4 border-double border-foreground/40`}
                     onDragStart={(event) => onDragStart(event, 'entity', 'weak')}
                     draggable
                 >
@@ -43,11 +46,11 @@ export default function Sidebar() {
 
             {/* Attributes Draggables */}
             <div>
-                <h3 className="text-sm font-semibold text-gray-500 mb-2 mt-4">Attributes</h3>
+                <h3 className="text-sm font-semibold text-muted-foreground mb-2 mt-4">Attributes</h3>
 
                 {/* Simple Attribute */}
                 <div
-                    className="w-full h-12 rounded-[50%] border-2 border-black bg-white flex items-center justify-center cursor-grab mb-2 hover:bg-gray-50"
+                    className={`${itemBaseClass} rounded-full border-2 border-foreground/40 mb-2`}
                     onDragStart={(event) => onDragStart(event, 'attribute', 'simple')}
                     draggable
                 >
@@ -56,23 +59,25 @@ export default function Sidebar() {
 
                 {/* Key Attribute */}
                 <div
-                    className="w-full h-12 rounded-[50%] border-2 border-black bg-white flex items-center justify-center cursor-grab mb-3 hover:bg-gray-50 underline decoration-solid"
+                    className={`${itemBaseClass} rounded-full border-2 border-foreground/40 mb-3 underline decoration-solid`}
                     onDragStart={(event) => onDragStart(event, 'attribute', 'key')}
                     draggable
                 >
                     Key
                 </div>
 
+                {/* Multi-Valued Attribute */}
                 <div
-                    className="w-full h-12 rounded-[50%] border-2 border-black bg-white flex items-center justify-center cursor-grab mb-2 hover:bg-gray-50 outline-2 outline-offset-2 outline-black"
+                    className={`${itemBaseClass} rounded-full border-2 border-foreground/40 mb-2 outline outline-2 outline-offset-2 outline-foreground/40 hover:outline-brand-blue`}
                     onDragStart={(event) => onDragStart(event, 'attribute', 'multi-valued')}
                     draggable
                 >
                     Multi-Valued
                 </div>
 
+                {/* Derived Attribute */}
                 <div
-                    className="w-full h-12 rounded-[50%] border-2 border-black bg-white flex items-center justify-center cursor-grab mb-2 hover:bg-gray-50 border-dashed"
+                    className={`${itemBaseClass} rounded-full border-2 border-foreground/40 mb-2 border-dashed`}
                     onDragStart={(event) => onDragStart(event, 'attribute', 'derived')}
                     draggable
                 >

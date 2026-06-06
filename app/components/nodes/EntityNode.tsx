@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react'
+import React, { useMemo, useState } from 'react'
 import { Handle, Position } from '@xyflow/react'
 import useDiagramStore from '@/store/useDiagramStore';
 
@@ -7,33 +7,23 @@ const EntityNode = ({ data, id }: any) => {
     const [label, setLabel] = useState(data.label);
     const [isEditing, setIsEditing] = useState(false);
 
-    // Pull the specific actions from YOUR global brain
     const { activeExpandedEntityId, updateNodeData, setEntityExpanded, activeErrorNodeId, nodes, edges } = useDiagramStore();
 
-    // 2. The 80/20 Lightweight Error Check (Runs only when this node updates)
-    // memoize the hasError's value & re-calculate/update value only when change occurs in one of : data.hiddenAttributes, visual-attributes(nodes), 
-    // i.e. don't calculate on every re-render
     const hasError = useMemo(() => {
-        // Grab hidden attributes
         const hiddenAttrs = data.hiddenAttributes || [];
 
-        // Grab visual attributes connected to this node
         const visualAttrs = edges
-            .filter(e => e.source === id || e.target === id)// filter edges where source/target is this node
-            .map(e => nodes.find(n => n.id === (e.source === id ? e.target : e.source)))// find other-node(s) connected by edges to this one
+            .filter(e => e.source === id || e.target === id)
+            .map(e => nodes.find(n => n.id === (e.source === id ? e.target : e.source)))
             .filter(n => n?.type === 'attribute')
             .map(n => n?.data || {});
 
-        const allAttrs = [...hiddenAttrs, ...visualAttrs];// allAttrs is an array of data object of attributes  
+        const allAttrs = [...hiddenAttrs, ...visualAttrs];
 
-        // fix this
-        // Error Condition 1: No Primary Key found
         const PK = nodes.find(n => n.id === id)?.data?.primaryKey as string;
 
-        if ((!PK || PK.length == 0) && allAttrs.length > 0) return true; // Only warn if they've started adding attributes (i.e. allAttrs.length > 0)
-        console.log("PK: ", PK)
+        if ((!PK || PK.length == 0) && allAttrs.length > 0) return true;
 
-        // Error Condition 2: Any attribute is missing a Data Type
         const hasMissingType = allAttrs.some(attr => !attr.dataType || attr.dataType === '');
         if (hasMissingType) return true;
 
@@ -41,10 +31,8 @@ const EntityNode = ({ data, id }: any) => {
         if (hasMissingSize) return true;
 
         return false;
-    }, [data.hiddenAttributes, edges, nodes, id]); // Recalculates if connections or data changes
+    }, [data.hiddenAttributes, edges, nodes, id]);
 
-
-    // Track click timing to prevent onClick on doubleClick
     const clickTimerRef = React.useRef<NodeJS.Timeout | null>(null);
 
     const handleLabelChange = (newLabel: string) => {
@@ -52,7 +40,6 @@ const EntityNode = ({ data, id }: any) => {
     };
 
     const handleDoubleClick = () => {
-        // Clear any pending onClick
         if (clickTimerRef.current) {
             clearTimeout(clickTimerRef.current);
             clickTimerRef.current = null;
@@ -61,13 +48,8 @@ const EntityNode = ({ data, id }: any) => {
     };
 
     const handleClick = () => {
-        // Check if a doubleClick is coming
-        if (clickTimerRef.current) {
-            // This is the second click of a double-click, do nothing
-            return;
-        }
+        if (clickTimerRef.current) return;
 
-        // Set a timer - if no second click comes within 300ms, execute the onClick
         clickTimerRef.current = setTimeout(() => {
             setEntityExpanded(activeExpandedEntityId == id ? null : id);
             clickTimerRef.current = null;
@@ -76,54 +58,48 @@ const EntityNode = ({ data, id }: any) => {
 
     const isTargeted = activeErrorNodeId === id;
 
-    // Build the dynamic Tailwind classes
+    // 🌟 Themed Dynamic Classes
     const borderStyle = data.entityType === 'weak' ? 'border-4 border-double' : 'border-2';
-    const errorBorder = hasError ? 'border-yellow-500' : 'border-black';
-
-    // 🌟 The Red Glow Effect!
-    const targetGlow = isTargeted ? 'ring-4 ring-red-500 shadow-[0_0_25px_rgba(239,68,68,0.9)] animate-pulse' : '';
+    const errorBorder = hasError ? 'border-amber-500' : 'border-foreground';
+    const targetGlow = isTargeted ? 'ring-4 ring-destructive shadow-[0_0_25px_rgba(239,68,68,0.6)] animate-pulse' : '';
 
     return (
         <div className="relative group">
             <div
                 onDoubleClick={handleDoubleClick}
                 onBlur={() => setIsEditing(false)}
-                // Apply the glow class to the main wrapper!
-                className={`w-40 h-12 bg-white rounded-md flex items-center justify-center transition-all duration-300 ${borderStyle} ${errorBorder} ${targetGlow}`}
+                className={`w-40 h-12 bg-card text-card-foreground rounded-md flex items-center justify-center transition-all duration-300 ${borderStyle} ${errorBorder} ${targetGlow} shadow-sm hover:shadow-md`}
                 onClick={handleClick}
-                // onFocus={() => { setEntityExpanded(id) }}
             >
-                {/* The Warning Badge */}
+                {/* 🌟 Themed Warning Badge */}
                 {hasError && (
-                    <div className="absolute -top-2 -right-2 bg-yellow-300 rounded-full w-5 h-5 flex items-center justify-center text-[10px] shadow-sm animate-pulse cursor-help"
+                    <div className="absolute -top-2 -right-2 bg-amber-400 text-amber-950 rounded-full w-5 h-5 flex items-center justify-center text-[10px] shadow-sm animate-pulse cursor-help font-bold"
                         title="Missing Data Type or Primary Key">
                         ⚠️
                     </div>
                 )}
 
-                {/* 🌟 The Ghost Handles (Only visible on hover) */}
-                <Handle type="source" position={Position.Top} id="top" className="w-2 h-2 border-none bg-blue-400 opacity-0 group-hover:opacity-100 transition-opacity" />
-                <Handle type="source" position={Position.Right} id="right" className="w-2 h-2 border-none bg-blue-400 opacity-0 group-hover:opacity-100 transition-opacity" />
-                <Handle type="source" position={Position.Bottom} id="bottom" className="w-2 h-2 border-none bg-blue-400 opacity-0 group-hover:opacity-100 transition-opacity" />
-                <Handle type="source" position={Position.Left} id="left" className="w-2 h-2 border-none bg-blue-400 opacity-0 group-hover:opacity-100 transition-opacity" />
+                {/* The Ghost Handles */}
+                <Handle type="source" position={Position.Top} id="top" className="w-2 h-2 border-none bg-brand-blue opacity-0 group-hover:opacity-100 transition-opacity" />
+                <Handle type="source" position={Position.Right} id="right" className="w-2 h-2 border-none bg-brand-blue opacity-0 group-hover:opacity-100 transition-opacity" />
+                <Handle type="source" position={Position.Bottom} id="bottom" className="w-2 h-2 border-none bg-brand-blue opacity-0 group-hover:opacity-100 transition-opacity" />
+                <Handle type="source" position={Position.Left} id="left" className="w-2 h-2 border-none bg-brand-blue opacity-0 group-hover:opacity-100 transition-opacity" />
 
                 {!isEditing ? (
-                    <p className='line-clamp-1 text-center'>{label}</p>
+                    <p className='line-clamp-1 text-center px-2'>{label}</p>
                 ) : (
                     <input
-                        className='w-20 text-center outline-none bg-transparent'
+                        className='w-full px-2 text-center outline-none bg-transparent text-card-foreground'
                         type='text'
                         autoFocus
                         value={label}
                         onChange={(e) => handleLabelChange(e.target.value?.toUpperCase())}
                         onBlur={(e) => {
-                            // The FAANG-level clean update:
                             updateNodeData(id, { label: e.target.value });
                         }}
                     />
                 )}
             </div>
-
         </div>
     )
 }

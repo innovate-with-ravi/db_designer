@@ -1,0 +1,46 @@
+```
+└── 📁app
+    └── 📁api
+        └── 📁auth
+            └── 📁[...nextauth]
+                ├── route.ts
+        └── 📁diagrams
+            └── 📁[id]
+                ├── route.ts
+    └── 📁components
+        └── 📁edges
+            ├── RelationshipEdge.tsx
+        └── 📁Editor
+            ├── EditorHeader.tsx
+            ├── EditorPage.tsx
+        └── 📁landing
+            ├── CursorFollower.tsx
+            ├── FeatureBento.tsx
+            ├── Footer.tsx
+            ├── HeroSection.tsx
+        └── 📁layout
+            ├── Navbar.tsx
+        └── 📁nodes
+            ├── AttributeNode.tsx
+            ├── EntityNode.tsx
+        └── 📁ui
+            ├── LeftSidebar.tsx
+            ├── PropertiesPanel.tsx
+            ├── SqlCodeBlock.tsx
+            ├── SqlOutputModal.tsx
+            ├── ValidationConsole.tsx
+        ├── ThemeProvider.tsx
+        ├── ThemeToggle.tsx
+    └── 📁dashboard
+        ├── page.tsx
+    └── 📁docs
+        ├── layout.tsx
+        ├── page.tsx
+    └── 📁editor
+        └── 📁[id]
+            ├── page.tsx
+    ├── favicon.ico
+    ├── globals.css
+    ├── layout.tsx
+    └── page.tsx
+```

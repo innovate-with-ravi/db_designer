@@ -3,6 +3,7 @@
 import React, { useCallback, useState, useRef, useEffect } from 'react';
 import { ReactFlow, Background, Controls, ReactFlowProvider, useReactFlow, ConnectionMode } from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
+import { useTheme } from 'next-themes';
 
 import useDiagramStore from '@/store/useDiagramStore';
 import EntityNode from '@/app/components/nodes/EntityNode';
@@ -24,7 +25,6 @@ import EditorHeader from './EditorHeader';
 import { getDiagramById } from '@/action/loadDiagram';
 import { useParams } from 'next/navigation';
 
-
 // Define these OUTSIDE the component to prevent unnecessary recreation
 const nodeTypes = {
     entity: EntityNode,
@@ -39,12 +39,14 @@ const edgeTypes = {
 function DnDCanvas() {
     const reactFlowWrapper = useRef<HTMLDivElement>(null);
     const { nodes, edges, onNodesChange, onEdgesChange, onConnect, addNode } = useDiagramStore();
-    const { screenToFlowPosition } = useReactFlow(); // The magic coordinate math hook!
+    const { screenToFlowPosition } = useReactFlow();
+
+    // 🌟 1. Grab the global theme for React Flow!
+    const { resolvedTheme } = useTheme();
 
     const onDragOver = useCallback(
         (event: React.DragEvent) => {
             event.preventDefault();
-
             event.dataTransfer.dropEffect = 'move';
         }
         , []);
@@ -68,7 +70,7 @@ function DnDCanvas() {
 
             // 3. Create the new node object
             const newNode = {
-                id: `node-${Date.now()}`, // Generate a unique ID
+                id: `node-${Date.now()}`,
                 type,
                 position,
                 data: {
@@ -84,11 +86,10 @@ function DnDCanvas() {
         [screenToFlowPosition, addNode],
     );
 
-    // State for showing PK exists modal (outside validation logic)
+    // State for showing PK exists modal 
     const [showPKModal, setShowPKModal] = React.useState(false);
 
     const isValidConnection = useCallback((connection: any) => {
-        // 1. Grab the current state (only using useDiagramStore.getState()) directly from the store
         const { nodes, edges } = useDiagramStore.getState();
 
         const sourceNode = nodes.find((n) => n.id === connection.source);
@@ -96,89 +97,69 @@ function DnDCanvas() {
 
         if (!sourceNode || !targetNode) return false;
 
-        // Prevent connecting attribute to attribute
         if (sourceNode.type == 'attribute' && targetNode.type == 'attribute') return false;
 
-        // 2. Are they connecting an Entity to an Attribute?
         const isEntityToAttr =
             (sourceNode.type === 'entity' && targetNode.type === 'attribute') ||
             (sourceNode.type === 'attribute' && targetNode.type === 'entity');
 
-        // If it's a relationship between two entities, let it connect instantly!
         if (!isEntityToAttr) return true;
 
-        // 3. Figure out which one is the Entity
         const entityId = sourceNode.type === 'entity' ? sourceNode.id : targetNode.id;
 
-        // Is the node they are dragging a "Key" attribute?
         const draggingNode = sourceNode.id === entityId ? targetNode : sourceNode;
         const isDraggingKey = draggingNode.data?.attributeType === 'key';
 
         if (isDraggingKey) {
-            // Check if the entity already has a Key connected
             const hasExistingKey = edges.some((edge) => {
                 if (edge.source !== entityId && edge.target !== entityId) return false;
-
                 const otherNodeId = edge.source === entityId ? edge.target : edge.source;
                 const otherNode = nodes.find((n) => n.id === otherNodeId);
-
                 return otherNode?.data?.attributeType === 'key';
             });
 
-            // Block it if a key already exists!
             if (hasExistingKey) {
-                // Show modal via state instead of calling setShowPKExists here
                 setShowPKModal(true);
-                // Auto-dismiss after 2 seconds
                 setTimeout(() => setShowPKModal(false), 2000);
                 return false;
             }
         }
 
-        // 4. Count existing attribute lines
         let attributeLineCount = 0;
 
         edges.forEach((edge) => {
-            // Is this edge attached to our entity?
             if (edge.source === entityId || edge.target === entityId) {
-                // Find the node on the OTHER side of this edge
                 const otherNodeId = edge.source === entityId ? edge.target : edge.source;
                 const otherNode = nodes.find((n) => n.id === otherNodeId);
-
-                // If the other side is an attribute, increase the count
                 if (otherNode?.type === 'attribute') {
                     attributeLineCount++;
                 }
             }
         });
 
-        // If limit reached, expand the properties panel for that entity
         if (attributeLineCount >= 4) {
             const { setEntityExpanded } = useDiagramStore.getState();
             setEntityExpanded(entityId);
             return false;
         }
 
-        return true; // Allow the connection
+        return true;
     }, []);
-
-    console.log("nodes: ", nodes)
-    console.log("edges: ", edges)
 
     return (
         <div className="flex-1 h-full relative" ref={reactFlowWrapper}>
-            {/* PK Exists Modal */}
+            {/* PK Exists Modal - Now globally themed! */}
             {showPKModal && (
-                <div className="fixed inset-0 flex items-center justify-center z-[100] bg-black/50 pointer-events-none animate-fadeIn">
-                    <div className="bg-white rounded-lg shadow-2xl p-6 max-w-sm mx-4 pointer-events-auto">
+                <div className="fixed inset-0 flex items-center justify-center z-[100] bg-background/80 backdrop-blur-sm pointer-events-none animate-fadeIn">
+                    <div className="bg-card border border-border rounded-lg shadow-2xl p-6 max-w-sm mx-4 pointer-events-auto">
                         <div className="flex items-center gap-3 mb-4">
                             <span className="text-2xl">⚠️</span>
-                            <h3 className="text-lg font-bold text-gray-800">Primary Key Exists</h3>
+                            <h3 className="text-lg font-bold text-card-foreground">Primary Key Exists</h3>
                         </div>
-                        <p className="text-gray-600 mb-4">This entity already has a primary key attribute. Only one primary key is allowed per entity.</p>
+                        <p className="text-muted-foreground mb-4">This entity already has a primary key attribute. Only one primary key is allowed per entity.</p>
                         <button
                             onClick={() => setShowPKModal(false)}
-                            className="w-full bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 transition"
+                            className="w-full bg-brand-blue text-white px-4 py-2 rounded hover:opacity-90 transition-all"
                         >
                             Understood
                         </button>
@@ -194,12 +175,13 @@ function DnDCanvas() {
                 onNodesChange={onNodesChange}
                 onEdgesChange={onEdgesChange}
                 onConnect={onConnect}
-
-                onDrop={onDrop}         // Handle the drop
-                onDragOver={onDragOver} // Allow the drop
+                onDrop={onDrop}
+                onDragOver={onDragOver}
                 connectionMode={ConnectionMode.Loose}
                 isValidConnection={isValidConnection}
                 fitView
+                // 🌟 2. Magic Color Mode injection!
+                colorMode={resolvedTheme === 'dark' ? 'dark' : 'light'}
             >
                 <Background />
                 <Controls />
@@ -215,19 +197,15 @@ export default function EditorPage() {
     const { nodes, edges, validateDiagram, setEntityExpanded, activeExpandedEntityId, setGlobalErrors, setDiagram } = useDiagramStore();
     const [sqlOutput, setSqlOutput] = useState<{ sql: string, html: string } | null>(null);
 
-    // The database stores data in a flat format (e.g., x_pos, y_pos), but React Flow requires a highly specific nested object (position: { x, y }). We have to write a "Data Mapper" to translate the MySQL rows back into React Flow objects.
-
-    // 🌟 1. Add a hydration lock
     const [isHydrating, setIsHydrating] = useState(true);
 
-    // 🌟 THE HYDRATION ENGINE
     useEffect(() => {
         const diagramId = params.id;
 
         const loadProject = async () => {
             if (diagramId === 'new') {
                 setDiagram([], []);
-                setIsHydrating(false); // Unlock UI
+                setIsHydrating(false);
                 return;
             }
 
@@ -262,7 +240,7 @@ export default function EditorPage() {
                 });
 
                 setDiagram(rfNodes, rfEdges);
-                setIsHydrating(false); // 🌟 Unlock UI after data is inside Zustand!
+                setIsHydrating(false);
             } else {
                 alert("Failed to load diagram.");
                 setIsHydrating(false);
@@ -273,63 +251,44 @@ export default function EditorPage() {
     }, [params.id, setDiagram]);
 
     const handleGenerate = async () => {
-        // 1. First, check purely visual/topological rules (like disconnected tables)
-        // You will update your Zustand validateDiagram to push objects: { message: "...", nodeId: id }
         const isTopologicallyValid = validateDiagram();
         if (!isTopologicallyValid) return;
 
-        // 2. Compile the JSON Array for Zod
         const compressedData = compileDiagramState(nodes, edges);
-
-        // 3. The Strict Zod Net
         const validationResult = databaseSchema.safeParse(compressedData);
 
         if (!validationResult.success) {
-            // Map Zod errors into our interactive UI format
             const zodErrors: ValidationError[] = validationResult.error.issues.map((issue) => {
-                // Zod 'path' looks like: [0(idx of entity), "attributes" (where problem in entity?), 1 (idx of attribute), "dataType" (where problem in attribute?)]
-                // The 0th index is the index of the entity in our compressedData array!
                 const entityIndex = issue.path[0] as number;
                 const brokenEntity = compressedData[entityIndex];
-                // Clean up the error message for the user
-                const fieldName = issue.path[issue.path.length - 1] as string; // e.g., "dataType"
+                const fieldName = issue.path[issue.path.length - 1] as string;
 
                 const customMessage = `Table '${brokenEntity.data.label}' has an error in '${fieldName}': ${issue.message}`;
 
                 return {
                     message: customMessage,
-                    nodeId: brokenEntity.id // Pass the ID so the "Focus & Fix" button works!
+                    nodeId: brokenEntity.id
                 };
             });
 
-            // Fire the bottom console!
             setGlobalErrors(zodErrors);
             return;
         }
 
-
-        // generating color-coded html for sql
-        // 2. Generate the SQL string -> runs on browser
         const finalSql = generateMySQL(compressedData, edges);
-
-        // 3. Generate highlighted HTML -> runs on server
         const htmlCode = await generateSqlHtml(finalSql);
-
-        // 4. Open the Modal
         setSqlOutput({ sql: finalSql, html: htmlCode });
     };
 
-    // if activeExpandedEntity is not in canvas => slide out propsPanel 
-    // i.e. on deleting entity using <- backspace, slide out propsPanel
     useEffect(() => {
         if (!nodes.some((n) => n.id == activeExpandedEntityId))
             setEntityExpanded(null)
-    }, [nodes])
+    }, [nodes, activeExpandedEntityId, setEntityExpanded])
 
-    // 🌟 2. The Loading Screen
+    // 🌟 Loading Screen Fix
     if (isHydrating) {
         return (
-            <div className="w-screen h-screen flex flex-col items-center justify-center bg-slate-50 text-slate-500">
+            <div className="w-screen h-screen flex flex-col items-center justify-center bg-background text-muted-foreground transition-colors duration-300">
                 <div className="animate-spin text-4xl mb-4">🔄</div>
                 <h2 className="text-xl font-bold">Loading Workspace...</h2>
             </div>
@@ -337,39 +296,54 @@ export default function EditorPage() {
     }
 
     return (
-        // 1. Master wrapper is now a Flex Column
-        <div className="w-screen h-screen flex flex-col overflow-hidden bg-gray-50">
-            <EditorHeader id={params.id as string} title='test-er' nodes={nodes} edges={edges} />s
-            <ReactFlowProvider>
+        <>
+            {/* 🌟 MOBILE BLOCKER OVERLAY (Globally Themed) */}
+            <div className="md:hidden fixed inset-0 z-[9999] bg-background flex flex-col items-center justify-center p-8 text-center text-foreground transition-colors duration-300">
+                <div className="w-20 h-20 bg-brand-blue/20 rounded-full flex items-center justify-center mb-6 border border-brand-blue/30">
+                    <span className="text-4xl">💻</span>
+                </div>
+                <h2 className="text-2xl font-bold mb-3 text-foreground">Desktop Required</h2>
+                <p className="text-muted-foreground mb-8 max-w-sm leading-relaxed">
+                    Database schema architecture requires a larger canvas for the best experience. Please open this project on a desktop or tablet device.
+                </p>
+                <button
+                    onClick={() => window.location.href = '/dashboard'}
+                    className="bg-brand-blue hover:opacity-90 px-8 py-3 rounded-md font-bold transition-all w-full max-w-xs shadow-lg text-white"
+                >
+                    Back to Dashboard
+                </button>
+            </div>
 
-                {/* 2. TOP ROW: The Workspace (takes up all remaining space) */}
-                <div className="flex-1 flex overflow-hidden">
-                    <Sidebar />
+            {/* 🌟 MAIN EDITOR WRAPPER */}
+            <div className="hidden md:flex w-screen h-screen flex-col overflow-hidden bg-background transition-colors duration-300">
+                <EditorHeader id={params.id as string} title='test-er' nodes={nodes} edges={edges} />
+                <ReactFlowProvider>
 
-                    <div className="flex-1 relative">
+                    <div className="flex-1 flex overflow-hidden">
+                        <Sidebar />
 
-                        <button
-                            onClick={handleGenerate}
-                            className="absolute top-4 right-4 z-50 bg-blue-600 text-white px-6 py-3 rounded-md font-bold shadow-lg hover:bg-blue-700 transition"
-                        >
-                            Generate SQL
-                        </button>
-                        <DnDCanvas />
+                        {/* 🌟 The Main Canvas Background Container */}
+                        <div className="flex-1 relative bg-background transition-colors duration-300">
+                            <button
+                                onClick={handleGenerate}
+                                className="absolute top-4 right-4 z-50 bg-brand-blue text-white px-6 py-3 rounded-md font-bold shadow-lg hover:opacity-90 transition-all"
+                            >
+                                Generate SQL
+                            </button>
+                            <DnDCanvas />
+                        </div>
 
+                        <PropertiesPanel />
                     </div>
 
-                    <PropertiesPanel />
-                </div>
+                    <ValidationConsole />
 
-                {/* 3. BOTTOM ROW: The Resizable Console */}
-                <ValidationConsole />
+                </ReactFlowProvider>
 
-            </ReactFlowProvider>
-
-            {/* Render the modal if sqlOutput has text */}
-            {sqlOutput && (
-                <SqlOutputModal sql={sqlOutput.sql} htmlCode={sqlOutput.html} onClose={() => setSqlOutput(null)} />
-            )}
-        </div>
+                {sqlOutput && (
+                    <SqlOutputModal sql={sqlOutput.sql} htmlCode={sqlOutput.html} onClose={() => setSqlOutput(null)} />
+                )}
+            </div>
+        </>
     );
 }
