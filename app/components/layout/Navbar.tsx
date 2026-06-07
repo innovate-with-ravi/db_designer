@@ -1,54 +1,69 @@
-"use client";
-
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { auth, signIn, signOut } from "@/auth";
 import ThemeToggle from "@/app/components/ThemeToggle";
-import { Database } from "lucide-react";
 
-// We allow passing `children` so the Editor can inject its "Save" button directly into the right side!
-export default function Navbar({ children, isAuthenticated, loginAction }: any) {
-    const pathname = usePathname();
-    const isEditor = pathname.startsWith('/editor/');
+// Accept a prop so we know if we are on the Landing Page or Dashboard
+export default async function Navbar({ isLandingPage = false }: { isLandingPage?: boolean }) {
+    const session = await auth();
+
+    const handleGoogleLogin = async () => {
+        "use server";
+        await signIn("google",
+            // { redirectTo: "/dashboard" }
+        );
+    };
+
+    const handleLogout = async () => {
+        "use server";
+        await signOut({ redirectTo: "/" });
+    };
 
     return (
-        <nav className="border-b border-surface-border bg-background/80 backdrop-blur-md sticky top-0 z-50 shrink-0">
+        <nav className="fixed top-0 left-0 right-0 z-50 border-b border-border bg-background/80 backdrop-blur-md transition-colors duration-300">
             <div className="max-w-7xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between">
 
-                {/* BRAND LOGO */}
-                <Link href="/" className="font-bold text-lg sm:text-xl tracking-tighter flex items-center gap-2">
-                    <div className="w-5 h-5 sm:w-6 sm:h-6 rounded bg-gradient-to-tr from-brand-blue to-brand-emerald flex items-center justify-center">
-                        <Database size={14} className="text-white" />
-                    </div>
+                {/* 1. Brand Logo */}
+                <Link href="/" className="font-bold text-lg sm:text-xl tracking-tighter flex items-center gap-2 text-foreground hover:opacity-80 transition-opacity">
+                    <div className="w-5 h-5 sm:w-6 sm:h-6 rounded bg-gradient-to-tr from-brand-blue to-brand-emerald shrink-0" />
                     <span className="hidden sm:block">DB Designer</span>
+                    <span className="sm:hidden">DBD</span>
                 </Link>
 
-                {/* RIGHT SIDE CONTROLS */}
-                <div className="flex items-center gap-3 sm:gap-6 text-sm font-medium">
+                {/* 2. Navigation & Actions */}
+                <div className="flex items-center gap-3 sm:gap-6 text-sm font-medium text-muted-foreground">
 
-                    {/* If we are NOT in the editor, show standard navigation */}
-                    {!isEditor && (
-                        <div className="hidden md:flex items-center gap-6 text-slate-400 mr-4">
-                            <Link href="/docs" className="hover:text-foreground transition-colors">Docs</Link>
-                            <Link href="/#features" className="hover:text-foreground transition-colors">Features</Link>
-                        </div>
+                    {/* Show Docs/Features only if they aren't deep in the app */}
+                    {isLandingPage && (
+                        <>
+                            <Link href="/docs" className="hidden md:block hover:text-foreground transition-colors">Documentation</Link>
+                            <Link href="#features" className="hidden md:block hover:text-foreground transition-colors">Features</Link>
+                        </>
                     )}
 
-                    {/* Inject Editor controls (Save Button, Title) here if they exist */}
-                    {children}
+                    {session?.user ? (
+                        <div className="flex items-center gap-3 sm:gap-4">
+                            {/* Only show Dashboard button if they are on the landing page */}
+                            {isLandingPage && (
+                                <Link href="/dashboard" className="bg-foreground text-background hover:opacity-90 px-4 py-2 rounded-full transition-all font-bold whitespace-nowrap shadow-sm">
+                                    Dashboard
+                                </Link>
+                            )}
 
-                    {/* Authentication Button (Only show on Landing/Dashboard if no children are passed) */}
-                    {!children && (
-                        isAuthenticated ? (
-                            <Link href="/dashboard" className="bg-surface hover:bg-surface-hover text-foreground px-4 py-2 rounded-full transition-all border border-surface-border hidden sm:block">
-                                Workspace
-                            </Link>
-                        ) : (
-                            <form action={loginAction}>
-                                <button type="submit" className="bg-foreground text-background hover:opacity-80 px-4 py-2 rounded-full transition-all font-bold">
-                                    Sign In
-                                </button>
-                            </form>
-                        )
+                            {/* Sign Out (Specifically requested for the Landing Page!) */}
+                            {isLandingPage && (
+                                <form action={handleLogout}>
+                                    <button type="submit" className="text-muted-foreground hover:text-destructive transition-colors font-medium whitespace-nowrap">
+                                        Sign Out
+                                    </button>
+                                </form>
+                            )}
+                        </div>
+                    ) : (
+                        <form action={handleGoogleLogin}>
+                            <button type="submit" className="bg-foreground text-background hover:opacity-90 px-4 py-2 rounded-full transition-all font-bold whitespace-nowrap shadow-sm">
+                                Sign In
+                            </button>
+                        </form>
                     )}
 
                     <ThemeToggle />

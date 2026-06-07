@@ -4,6 +4,7 @@ import ThemeToggle from '@/app/components/ThemeToggle';
 
 import type { Metadata, ResolvingMetadata } from 'next'
 import { auth } from '@/auth';
+import Navbar from '../components/layout/Navbar';
 
 export async function generateMetadata(parent: ResolvingMetadata): Promise<Metadata> {
     const session = await auth()
@@ -30,30 +31,25 @@ export default async function DashboardPage() {
     const diagrams = response.diagrams;
 
     return (
-        <div className="min-h-screen bg-background p-4 sm:p-10 transition-colors duration-300">
-            <div className="max-w-6xl mx-auto">
+        <div className="min-h-screen bg-background p-4 sm:p-10 pt-24 sm:pt-32 transition-colors duration-300">
+            {/* 🌟 The Universal Navbar */}
+            <Navbar isLandingPage={false} />
 
-                {/* Header */}
+            <div className="max-w-6xl mx-auto">
+                {/* Local Dashboard Header */}
                 <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-8">
                     <div>
-                        <div className="flex items-center gap-4">
-                            <h1 className="text-2xl sm:text-3xl font-bold text-foreground transition-colors">Your Projects</h1>
-                            <ThemeToggle />
-                        </div>
+                        <h1 className="text-2xl sm:text-3xl font-bold text-foreground transition-colors">Your Projects</h1>
                         <p className="text-muted-foreground mt-1 text-sm sm:text-base transition-colors">Manage and edit your database schemas.</p>
                     </div>
 
-                    <div className="flex items-center gap-4 w-full sm:w-auto">
-                        <Link href="/" className="hidden sm:block text-sm font-medium text-muted-foreground hover:text-foreground transition-colors">
-                            Back to Home
-                        </Link>
-                        <Link
-                            href="/editor/new"
-                            className="w-full sm:w-auto text-center bg-brand-blue text-white px-6 py-3 rounded-lg font-bold shadow-md hover:opacity-90 transition-all"
-                        >
-                            + New Diagram
-                        </Link>
-                    </div>
+                    {/* New Diagram Button */}
+                    <Link
+                        href="/editor/new"
+                        className="w-full sm:w-auto text-center bg-brand-blue text-white px-6 py-3 rounded-lg font-bold shadow-md hover:opacity-90 transition-all"
+                    >
+                        + New Diagram
+                    </Link>
                 </div>
 
                 {/* The Grid */}

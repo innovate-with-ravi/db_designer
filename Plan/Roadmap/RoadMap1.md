@@ -45,8 +45,6 @@ Your own database to save user projects.
 * **diagram\_nodes**: (id, diagram\_id, type, label, x\_pos, y\_pos, node\_data\_json).  
 * **diagram\_edges**: (id, diagram\_id, source\_node, target\_node, source\_cardinality, target\_cardinality).
 
-### **6\. Responsiveness**
-Truth about responsiveness in a SaaS tool: The Landing Page and Dashboard must be fully responsive and work perfectly on mobile. However, complex drag-and-drop canvas interfaces (like React Flow) offer a terrible user experience on a 6-inch phone screen. The industry standard is to make the Editor "View Only" on mobile, or display a clean "Please use a desktop device to edit schemas" overlay.
 
 ### **6\. Docs**
 --you can leave the docs for now, because I am thinking of a generic docs roadmap so that we don't have to create a page for every single feature in doc & going to discuss it with you later. So, for now you can just fix the navigation.
