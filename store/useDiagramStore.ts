@@ -5,14 +5,12 @@ import {
   Node,
   Edge,
   Connection,
-  addEdge,
   OnNodesChange,
   OnEdgesChange,
   OnConnect,
   applyNodeChanges,
   applyEdgeChanges
 } from '@xyflow/react';
-import { boolean } from 'zod';
 
 export interface ValidationError {
   message: string;
@@ -32,10 +30,10 @@ interface DiagramState {
   // Custom product actions we will use later
   addNode: (node: Node) => void;
   updateNodeData: (nodeId: string, newData: any) => void;
+  updateEdgeData: (edgeId: string, newData: any) => void;
 
   activeExpandedEntityId: string | null;
   setEntityExpanded: (entityId: string | null) => void;
-  updateEdgeData: (edgeId: string, newData: any) => void;
 
   // error handling:
   globalErrors: ValidationError[];
@@ -45,29 +43,81 @@ interface DiagramState {
   setActiveErrorNodeId: (id: string | null) => void;
 
   setDiagram: (nodes: any[], edges: any[]) => void;
+
+  // History state
+  past: { nodes: Node[]; edges: Edge[] }[];
+  future: { nodes: Node[]; edges: Edge[] }[];
+  takeSnapshot: () => void;
+  undo: () => void;
+  redo: () => void;
 }
 
-// 2. Create the actual Zustand store 
-// // this is our useDiagramStore hook that we can use in our components to get parts (nodes, edges) of the store and call actions (addNode etc.)
 const useDiagramStore = create<DiagramState>((set, get) => ({
   nodes: [],
   edges: [],
-
-  activeExpandedEntityId: null, // Starts as null
-
+  activeExpandedEntityId: null,
   globalErrors: [],
-  setGlobalErrors: (errors) => set({ globalErrors: errors }),
-
   activeErrorNodeId: null,
-  setActiveErrorNodeId: (id) => set({ activeErrorNodeId: id }),
 
+  // 🌟 1. MANUAL TIME MACHINE STATE
+  past: [],
+  future: [],
+
+  takeSnapshot: () => {
+    const { nodes, edges, past } = get();
+    set({
+      past: [...past, {
+        nodes: JSON.parse(JSON.stringify(nodes)),
+        edges: JSON.parse(JSON.stringify(edges))
+      }].slice(-50),
+      future: []
+    });
+  },
+
+  undo: () => {
+    const { past, future, nodes, edges } = get();
+    if (past.length === 0) return;
+
+    const previous = past[past.length - 1];
+    const newPast = past.slice(0, past.length - 1);
+
+    set({
+      nodes: previous.nodes,
+      edges: previous.edges,
+      past: newPast,
+      future: [{ nodes, edges }, ...future]
+    });
+  },
+
+  redo: () => {
+    const { past, future, nodes, edges } = get();
+    if (future.length === 0) return;
+
+    const next = future[0];
+    const newFuture = future.slice(1);
+
+    set({
+      nodes: next.nodes,
+      edges: next.edges,
+      past: [...past, { nodes, edges }],
+      future: newFuture
+    });
+  },
+
+  // 🌟 2. STRATEGIC SNAPSHOT TRIGGERS
   setDiagram: (nodes, edges) => set({
     nodes,
     edges,
     globalErrors: [],
     activeExpandedEntityId: null,
-    activeErrorNodeId: null
+    activeErrorNodeId: null,
+    past: [],
+    future: []
   }),
+
+  setGlobalErrors: (errors) => set({ globalErrors: errors }),
+  setActiveErrorNodeId: (id) => set({ activeErrorNodeId: id }),
+  setEntityExpanded: (entityId: string | null) => set({ activeExpandedEntityId: entityId }),
 
   validateDiagram: () => {
     const { nodes, edges } = get();
@@ -75,7 +125,6 @@ const useDiagramStore = create<DiagramState>((set, get) => ({
 
     const entities = nodes.filter((n) => n.type === 'entity');
 
-    // Regex to ensure valid SQL identifiers (Starts with letter/underscore, contains only letters/numbers/underscores)
     const isValidName = (name: string) => /^[a-zA-Z_][a-zA-Z0-9_]*$/.test(name);
 
     if (entities.length === 0) {
@@ -89,7 +138,6 @@ const useDiagramStore = create<DiagramState>((set, get) => ({
     entities.forEach((entity) => {
       const tableName = entity.data.label || 'Unnamed_Table';
 
-      // Feature 1: Validate Table Name format
       if (!isValidName(tableName as string)) {
         errors.push({
           message: `Table '${tableName}' has an invalid name. Use only letters, numbers, and underscores (no spaces).`,
@@ -97,19 +145,16 @@ const useDiagramStore = create<DiagramState>((set, get) => ({
         });
       }
 
-      // Feature 2: Prevent Duplicate Table Names
       const upperTableName = (tableName as string).toUpperCase();
       if (seenTableNames.has(upperTableName)) {
         errors.push({ message: `Duplicate table name found: '${tableName}'. Table names must be unique.`, nodeId: entity.id });
       }
       seenTableNames.add(upperTableName);
 
-      // Primary Key Check
       if (!entity.data.primaryKey) {
         errors.push({ message: `Table '${tableName}' is missing a Primary Key.`, nodeId: entity.id });
       }
 
-      // Gather all attributes (Hidden + Visual)
       const visualAttrs = edges
         .filter((e) => e.source === entity.id || e.target === entity.id)
         .map((e) => nodes.find((n) => n?.id === (e.source === entity.id ? e.target : e.source)))
@@ -124,16 +169,13 @@ const useDiagramStore = create<DiagramState>((set, get) => ({
       if (allAttrs.length === 0) {
         errors.push({ message: `Table '${tableName}' has no attributes. Add columns before generating SQL.`, nodeId: entity.id });
       } else {
-        // Validate Every Attribute
         allAttrs.forEach((attr) => {
           const attrName = attr.name || 'Unnamed_Column';
 
-          // Feature 1: Validate Column Name format
           if (!isValidName(attrName)) {
             errors.push({ message: `Column '${attrName}' in table '${tableName}' is invalid. No spaces or special characters allowed.`, nodeId: entity.id });
           }
 
-          // Feature 3: Check for missing Data Types and Sizes
           if (!attr.dataType || attr.dataType.trim() === '') {
             errors.push({ message: `Column '${attrName}' in table '${tableName}' is missing a Data Type.`, nodeId: entity.id });
           } else if ((attr.dataType === 'VARCHAR' || attr.dataType === 'CHAR') && (!attr.size || attr.size.trim() === '')) {
@@ -142,7 +184,6 @@ const useDiagramStore = create<DiagramState>((set, get) => ({
         });
       }
 
-      // Disconnected Table Check
       if (!hasRelationships && entities.length > 1 && allAttrs.length > 0) {
         errors.push({ message: `Warning: Table '${tableName}' is completely disconnected from the rest of the database.`, nodeId: entity.id });
       }
@@ -152,34 +193,46 @@ const useDiagramStore = create<DiagramState>((set, get) => ({
     return errors.length === 0;
   },
 
-  setEntityExpanded: (entityId: string | null) => {
-    set({ activeExpandedEntityId: entityId }); // Just store the one ID!
+  // 🌟 THE BULLETPROOF GUARDS
+  onNodesChange: (changes) => {
+    // ONLY snapshot if a node is actively being DELETED. 
+    // We explicitly ignore 'position', 'select', and 'dimensions' changes here.
+    const isDeletion = changes.some(c => c.type === 'remove');
+    if (isDeletion) {
+      get().takeSnapshot();
+    }
+
+    set({ nodes: applyNodeChanges(changes, get().nodes) });
   },
 
-  updateEdgeData: (edgeId, newData) => {
+  onEdgesChange: (changes) => {
+    // ONLY snapshot if an edge is actively being DELETED.
+    const isDeletion = changes.some(c => c.type === 'remove');
+    if (isDeletion) {
+      get().takeSnapshot();
+    }
+
+    set({ edges: applyEdgeChanges(changes, get().edges) });
+  },
+
+  updateNodeData: (nodeId, newData) => {
+    // 🌟 SNAPSHOT BEFORE WE CHANGE THE DATA
+    get().takeSnapshot();
+
     set((state) => ({
-      edges: state.edges.map((edge) =>
-        edge.id === edgeId ? { ...edge, data: { ...edge.data, ...newData } } : edge
+      nodes: state.nodes.map((node) =>
+        node.id === nodeId ? { ...node, data: { ...node.data, ...newData } } : node
       ),
     }));
   },
 
-  // This handles the drag-and-drop physics automatically
-  onNodesChange: (changes) => {
-    set({
-      nodes: applyNodeChanges(changes, get().nodes),
-    });
+  updateEdgeData: (edgeId, newData) => {
+    get().takeSnapshot();
+    set((state) => ({ edges: state.edges.map((edge) => edge.id === edgeId ? { ...edge, data: { ...edge.data, ...newData } } : edge) }));
   },
 
-  // This handles selecting and deleting lines
-  onEdgesChange: (changes) => {
-    set({
-      edges: applyEdgeChanges(changes, get().edges),
-    });
-  },
-
-  // This handles drawing new lines
   onConnect: (connection: Connection) => {
+    get().takeSnapshot();
     const state = get();
 
     const sourceNode = state.nodes.find(n => n.id === connection.source);
@@ -187,46 +240,31 @@ const useDiagramStore = create<DiagramState>((set, get) => ({
 
     if (!sourceNode || !targetNode) return;
 
-    // 1. Determine the Edge Type dynamically!
-    // If both nodes are entities, it's a Relationship Diamond. Otherwise, it's a standard default line.
     const isEntityToEntity = sourceNode.type === 'entity' && targetNode.type === 'entity';
     const finalEdgeType = isEntityToEntity ? 'relationship' : 'default';
 
-    // 2. Build the final edge object
     const newEdge = {
-      ...connection, id: `edge-${Date.now()}-${Math.floor(Math.random() * 10000)}`, type: finalEdgeType, data: isEntityToEntity ? { label: 'REL' } : {}
+      ...connection,
+      id: `edge-${Date.now()}-${Math.floor(Math.random() * 10000)}`,
+      type: finalEdgeType,
+      data: isEntityToEntity ? { label: 'REL' } : {}
     };
 
-    // 4. Force it into the state array directly
     set({ edges: [...state.edges, newEdge] });
 
-    // 3. Is one of them a Key attribute?
     const isSourceKey = sourceNode.data?.attributeType === 'key';
     const isTargetKey = targetNode.data?.attributeType === 'key';
 
     if (isSourceKey || isTargetKey) {
-      // Figure out which one is the Entity and which is the Key
       const entityId = sourceNode.type === 'entity' ? sourceNode.id : targetNode.id;
       const keyNodeId = sourceNode.type === 'attribute' ? sourceNode.id : targetNode.id;
-
-      // 4. Fire the update exactly as you designed it!
       state.updateNodeData(entityId, { primaryKey: keyNodeId });
-
-      // (The only edge-case here is if a user clicks the physical line and hits the "Delete" key. The entity's primaryKey string would still hold the ID of the disconnected node. For this MVP, our compiler can just double-check if the node is still attached. If you want to handle it live later, you would add similar logic to onEdgesChange!)
     }
   },
 
-  // Custom action for our future Sidebar
   addNode: (node: Node) => {
+    get().takeSnapshot();
     set({ nodes: [...get().nodes, node] });
-  },
-
-  updateNodeData: (nodeId, newData) => {
-    set((state) => ({
-      nodes: state.nodes.map((node) =>
-        node.id === nodeId ? { ...node, data: { ...node.data, ...newData } } : node
-      ),
-    }));
   },
 }));
 

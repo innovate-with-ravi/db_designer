@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react'
+import React, { useEffect, useMemo, useState } from 'react'
 import { Handle, Position } from '@xyflow/react'
 import useDiagramStore from '@/store/useDiagramStore';
 
@@ -6,6 +6,11 @@ const EntityNode = ({ data, id }: any) => {
 
     const [label, setLabel] = useState(data.label);
     const [isEditing, setIsEditing] = useState(false);
+
+    // If the global store's label changes (via Undo/Redo), update our local input text.
+    useEffect(() => {
+        setLabel(data.label);
+    }, [data.label]);
 
     const { activeExpandedEntityId, updateNodeData, setEntityExpanded, activeErrorNodeId, nodes, edges } = useDiagramStore();
 

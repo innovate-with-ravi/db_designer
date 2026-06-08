@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { BaseEdge, EdgeLabelRenderer, getBezierPath, useInternalNode, Position, getStraightPath } from '@xyflow/react';
 import useDiagramStore from '@/store/useDiagramStore';
 
@@ -6,9 +6,11 @@ import useDiagramStore from '@/store/useDiagramStore';
 // MATH ENGINE & HELPERS (Kept exactly identical)
 // ----------------------------------------------------------------------
 const getNodeCenter = (node: any) => ({ x: node.position.x + (node.measured?.width || 160) / 2, y: node.position.y + (node.measured?.height || 48) / 2 });
+
 const getNodeIntersection = (sourceNode: any, targetNode: any) => {
     const sourceCenter = getNodeCenter(sourceNode);
     const targetCenter = getNodeCenter(targetNode);
+
     const w = (sourceNode.measured?.width || 160) / 2;
     const h = (sourceNode.measured?.height || 48) / 2;
     const dx = targetCenter.x - sourceCenter.x;
@@ -21,6 +23,7 @@ const getNodeIntersection = (sourceNode: any, targetNode: any) => {
     else offsetX = ny !== 0 ? (nx * h) / ny : 0;
     return { x: sourceCenter.x + (dx > 0 ? offsetX : -offsetX), y: sourceCenter.y + (dy > 0 ? offsetY : -offsetY) };
 };
+
 const getOffsetPos = (pos: string, x: number, y: number, offset = 25) => {
     switch (pos) {
         case Position.Top: return { x, y: y - offset };
@@ -97,6 +100,12 @@ export default function RelationshipEdge({ id, source, target, sourceX, sourceY,
     const { updateEdgeData, edges } = useDiagramStore();
     const [isEditing, setIsEditing] = useState(false);
     const [showFlip, setShowFlip] = useState(false);
+    const [label, setLabel] = useState(data.label)
+
+    // 🌟 THE FIX: Sync Attribute labels with the time machine
+    useEffect(() => {
+        setLabel(data.label);
+    }, [data.label]);
 
     const sourceNode = useInternalNode(source);
     const targetNode = useInternalNode(target);
@@ -210,11 +219,12 @@ export default function RelationshipEdge({ id, source, target, sourceX, sourceY,
                         >
                             <div className="-rotate-45 flex items-center justify-center w-full">
                                 {!isEditing ? (
-                                    <p className="font-bold text-foreground text-center leading-tight line-clamp-1">{data?.label || 'REL'}</p>
+                                    <p className="font-bold text-foreground text-center leading-tight line-clamp-1">{label || 'REL'}</p>
                                 ) : (
                                     <input className="w-12 text-[10px] font-bold text-center outline-none bg-transparent text-foreground" type="text" autoFocus
-                                        value={data?.label as string || ''}
-                                        onChange={(e) => updateEdgeData(id, { label: e.target.value.toUpperCase() })}
+                                        value={label as string || 'REL'}
+                                        onChange={(e) => { setLabel(e.target.value.toLocaleUpperCase()) }}
+                                        onBlur={(e) => updateEdgeData(id, { label })}
                                     />
                                 )}
                             </div>

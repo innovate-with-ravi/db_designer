@@ -55,7 +55,3 @@ What I am thinking is we can use a tool like EJS templates to create a template 
 You can provide any better idea if you have. 
 
 or we can just complete the whole documentation in a single page or component.
-
-
-### **Consistent Navbar**
--- we can carry a same Navbar (similar to landing page's) to dashboard & editor(with er-name & save button) to give user a convenient, same & easy to remember experience across all pages.

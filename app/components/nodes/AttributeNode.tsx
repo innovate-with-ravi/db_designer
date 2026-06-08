@@ -1,10 +1,15 @@
-import React, { useState } from 'react'
+import React, { useEffect, useState } from 'react'
 import { Handle, Position } from '@xyflow/react'
 import useDiagramStore from '@/store/useDiagramStore';
 
 const AttributeNode = ({ data, id }: any) => {
   const [label, setLabel] = useState(data.label);
   const [isEditing, setIsEditing] = useState(false);
+
+  // 🌟 THE FIX: Sync Attribute labels with the time machine
+    useEffect(() => {
+        setLabel(data.label);
+    }, [data.label]);
 
   const { updateNodeData } = useDiagramStore()
 

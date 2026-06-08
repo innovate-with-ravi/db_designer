@@ -38,7 +38,7 @@ const edgeTypes = {
 // We create an inner component to handle the canvas logic so we can use the useReactFlow hook
 function DnDCanvas() {
     const reactFlowWrapper = useRef<HTMLDivElement>(null);
-    const { nodes, edges, onNodesChange, onEdgesChange, onConnect, addNode } = useDiagramStore();
+    const { nodes, edges, onNodesChange, onEdgesChange, onConnect, addNode, takeSnapshot } = useDiagramStore();
     const { screenToFlowPosition } = useReactFlow();
 
     // 🌟 1. Grab the global theme for React Flow!
@@ -176,6 +176,9 @@ function DnDCanvas() {
                 onEdgesChange={onEdgesChange}
                 onConnect={onConnect}
                 onDrop={onDrop}
+
+                // 🌟 THE MAGIC FIX: Take ONE snapshot the moment they grab the node
+                onNodeDragStart={() => takeSnapshot()}
                 onDragOver={onDragOver}
                 connectionMode={ConnectionMode.Loose}
                 isValidConnection={isValidConnection}
@@ -195,6 +198,10 @@ export default function EditorPage() {
     const params = useParams()
 
     const { nodes, edges, validateDiagram, setEntityExpanded, activeExpandedEntityId, setGlobalErrors, setDiagram } = useDiagramStore();
+
+    // Grab the new manual functions directly!
+    const { undo, redo } = useDiagramStore();
+
     const [sqlOutput, setSqlOutput] = useState<{ sql: string, html: string } | null>(null);
 
     const [isHydrating, setIsHydrating] = useState(true);
@@ -248,7 +255,37 @@ export default function EditorPage() {
         };
 
         loadProject();
+
     }, [params.id, setDiagram]);
+
+    // 🌟 THE KEYBOARD LISTENER
+    useEffect(() => {
+        const handleKeyDown = (event: KeyboardEvent) => {
+            // Check if user is typing inside an input field (we don't want to undo canvas if they are just typing a name!)
+            if (event.target instanceof HTMLInputElement || event.target instanceof HTMLTextAreaElement) {
+                return;
+            }
+
+            const isMac = navigator.platform.toUpperCase().indexOf('MAC') >= 0;
+            const cmdOrCtrl = isMac ? event.metaKey : event.ctrlKey;
+
+            if (cmdOrCtrl && event.key.toLowerCase() === 'z') {
+                if (event.shiftKey) {
+                    event.preventDefault();
+                    redo(); // Cmd+Shift+Z (Mac Redo)
+                } else {
+                    event.preventDefault();
+                    undo(); // Ctrl+Z or Cmd+Z (Undo)
+                }
+            } else if (cmdOrCtrl && event.key.toLowerCase() === 'y') {
+                event.preventDefault();
+                redo(); // Ctrl+Y (Windows Redo)
+            }
+        };
+
+        document.addEventListener('keydown', handleKeyDown);
+        return () => document.removeEventListener('keydown', handleKeyDown);
+    }, [undo, redo]);
 
     const handleGenerate = async () => {
         const isTopologicallyValid = validateDiagram();
@@ -284,6 +321,9 @@ export default function EditorPage() {
         if (!nodes.some((n) => n.id == activeExpandedEntityId))
             setEntityExpanded(null)
     }, [nodes, activeExpandedEntityId, setEntityExpanded])
+
+    // console.log("nodes: ", nodes);
+    // console.log("edges: ", edges);
 
     // 🌟 Loading Screen Fix
     if (isHydrating) {
