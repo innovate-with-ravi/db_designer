@@ -50,6 +50,12 @@ interface DiagramState {
   takeSnapshot: () => void;
   undo: () => void;
   redo: () => void;
+
+  // deep cloning
+  clipboard: { nodes: Node[], edges: Edge[] }
+  copySelection: (isCut?: boolean) => void;
+  cutSelection: () => void;
+  pasteSelection: () => void;
 }
 
 const useDiagramStore = create<DiagramState>((set, get) => ({
@@ -58,6 +64,99 @@ const useDiagramStore = create<DiagramState>((set, get) => ({
   activeExpandedEntityId: null,
   globalErrors: [],
   activeErrorNodeId: null,
+
+  // ... inside useDiagramStore ...
+
+  // 🌟 1. CLIPBOARD STATE
+  clipboard: { nodes: [], edges: [] } as { nodes: any[], edges: any[] },
+
+  // 🌟 2. COPY ACTION
+  copySelection: () => {
+    const { nodes, edges } = get();
+
+    // Find what the user actually highlighted
+    const selectedNodes = nodes.filter(n => n.selected);
+    if (selectedNodes.length === 0) return;
+
+    // Create a fast lookup Set of the selected Node IDs
+    const selectedNodeIds = new Set(selectedNodes.map(n => n.id));
+
+    // Find edges where BOTH ends are inside the user's selection
+    const selectedEdges = edges.filter(e =>
+      selectedNodeIds.has(e.source) && selectedNodeIds.has(e.target)
+    );
+
+    // Save to internal clipboard (Deep copy the data to avoid reference bugs)
+    set({
+      clipboard: {
+        nodes: JSON.parse(JSON.stringify(selectedNodes)),
+        edges: JSON.parse(JSON.stringify(selectedEdges))
+      }
+    });
+  },
+
+  // 🌟 3. CUT ACTION
+  cutSelection: () => {
+    get().copySelection(); // Copy first!
+
+    const { nodes, edges, clipboard } = get();
+    if (clipboard.nodes.length === 0) return;
+
+    get().takeSnapshot(); // 📸 SNAPSHOT before deletion
+
+    const cutNodeIds = new Set(clipboard.nodes.map((n: any) => n.id));
+
+    // Remove them from the canvas
+    set({
+      nodes: nodes.filter(n => !cutNodeIds.has(n.id)),
+      edges: edges.filter(e => !cutNodeIds.has(e.source) && !cutNodeIds.has(e.target))
+    });
+  },
+
+  // 🌟 4. PASTE ACTION (The Sub-Graph Rewirer)
+  pasteSelection: () => {
+    const { clipboard, nodes, edges } = get();
+    if (clipboard.nodes.length === 0) return;
+
+    get().takeSnapshot(); // 📸 SNAPSHOT before pasting
+
+    // A. Build the ID Dictionary map
+    const idMap = new Map<string, string>();
+    clipboard.nodes.forEach((n: any) => {
+      idMap.set(n.id, `node-${Date.now()}-${Math.floor(Math.random() * 10000)}`);
+    });
+
+    // B. Clone and Offset Nodes
+    const newNodes = clipboard.nodes.map((n: any) => {
+      const newId = idMap.get(n.id)!;
+      return {
+        ...n,
+        id: newId,
+        // Offset by 50px so it doesn't hide exactly behind the original
+        position: { x: n.position.x + 50, y: n.position.y + 50 },
+        selected: true, // Auto-select the newly pasted items
+      };
+    });
+
+    // C. Clone and Rewire Edges
+    const newEdges = clipboard.edges.map((e: any) => ({
+      ...e,
+      id: `edge-${Date.now()}-${Math.floor(Math.random() * 10000)}`,
+      source: idMap.get(e.source) || e.source,
+      target: idMap.get(e.target) || e.target,
+      selected: true,
+    }));
+
+    // D. Deselect everything currently on the canvas
+    const unselectedNodes = nodes.map(n => ({ ...n, selected: false }));
+    const unselectedEdges = edges.map(e => ({ ...e, selected: false }));
+
+    // E. Inject into the global state
+    set({
+      nodes: [...unselectedNodes, ...newNodes],
+      edges: [...unselectedEdges, ...newEdges]
+    });
+  },
 
   // 🌟 1. MANUAL TIME MACHINE STATE
   past: [],

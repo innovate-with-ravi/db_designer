@@ -199,8 +199,7 @@ export default function EditorPage() {
 
     const { nodes, edges, validateDiagram, setEntityExpanded, activeExpandedEntityId, setGlobalErrors, setDiagram } = useDiagramStore();
 
-    // Grab the new manual functions directly!
-    const { undo, redo } = useDiagramStore();
+    const { undo, redo, copySelection, cutSelection, pasteSelection } = useDiagramStore();
 
     const [sqlOutput, setSqlOutput] = useState<{ sql: string, html: string } | null>(null);
 
@@ -280,6 +279,17 @@ export default function EditorPage() {
             } else if (cmdOrCtrl && event.key.toLowerCase() === 'y') {
                 event.preventDefault();
                 redo(); // Ctrl+Y (Windows Redo)
+            }
+            // 🌟 NEW: Copy, Cut, Paste logic
+            else if (cmdOrCtrl && event.key.toLowerCase() === 'c') {
+                event.preventDefault();
+                copySelection();
+            } else if (cmdOrCtrl && event.key.toLowerCase() === 'x') {
+                event.preventDefault();
+                cutSelection();
+            } else if (cmdOrCtrl && event.key.toLowerCase() === 'v') {
+                event.preventDefault();
+                pasteSelection();
             }
         };
 

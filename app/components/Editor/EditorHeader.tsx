@@ -68,6 +68,8 @@ export default function EditorHeader({ id, title, nodes, edges }: EditorHeaderPr
 
 
     const handleForceSave = () => {
+        if (syncStatus != 'Unsaved') return;
+
         startTransition(async () => {
             setSyncStatus("Saving...");
             let result: any;
@@ -101,7 +103,10 @@ export default function EditorHeader({ id, title, nodes, edges }: EditorHeaderPr
 
             if (cmdOrCtrl && event.key.toLowerCase() === 's') {
                 event.preventDefault()
-                handleForceSave()
+                if (syncStatus == 'Unsaved') {
+                    handleForceSave()
+                    setSyncStatus('Saved ✅')
+                }
             }
         };
 
