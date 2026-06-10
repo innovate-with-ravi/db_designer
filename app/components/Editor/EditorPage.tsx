@@ -97,14 +97,37 @@ function DnDCanvas() {
 
         if (!sourceNode || !targetNode) return false;
 
-        if (sourceNode.type == 'attribute' && targetNode.type == 'attribute') return false;
+        // 🌟 1. Prevent Attribute to Attribute (Moved back for perfect UX)
+        if (sourceNode.type === 'attribute' && targetNode.type === 'attribute') {
+            return false;
+        }
 
+        const isEntityToEntity = sourceNode.type === 'entity' && targetNode.type === 'entity';
         const isEntityToAttr =
             (sourceNode.type === 'entity' && targetNode.type === 'attribute') ||
             (sourceNode.type === 'attribute' && targetNode.type === 'entity');
 
+        // 🌟 2. Allow Entity to Entity multiple times!
+        // If they are connecting two tables, approve it immediately. 
+        // onConnect already generates a unique ID for each new line.
+        if (isEntityToEntity) {
+            return true;
+        }
+
         if (!isEntityToAttr) return true;
 
+        // 🌟 3. Prevent duplicate connections to the SAME attribute
+        const edgeAlreadyExists = edges.some(
+            (edge) =>
+                (edge.source === connection.source && edge.target === connection.target) ||
+                (edge.source === connection.target && edge.target === connection.source)
+        );
+
+        if (edgeAlreadyExists) {
+            return false; // Turns the drag line red!
+        }
+
+        // --- Keep your existing PK and 4-attribute limit logic below ---
         const entityId = sourceNode.type === 'entity' ? sourceNode.id : targetNode.id;
 
         const draggingNode = sourceNode.id === entityId ? targetNode : sourceNode;
@@ -194,7 +217,7 @@ function DnDCanvas() {
 }
 
 
-export default function EditorPage() {
+export default function EditorPage({ title }: { title: string }) {
     const params = useParams()
 
     const { nodes, edges, validateDiagram, setEntityExpanded, activeExpandedEntityId, setGlobalErrors, setDiagram } = useDiagramStore();
@@ -366,7 +389,7 @@ export default function EditorPage() {
 
             {/* 🌟 MAIN EDITOR WRAPPER */}
             <div className="hidden md:flex w-screen h-screen flex-col overflow-hidden bg-background transition-colors duration-300">
-                <EditorHeader id={params.id as string} title='test-er' nodes={nodes} edges={edges} />
+                <EditorHeader id={params.id as string} title={title} nodes={nodes} edges={edges} />
                 <ReactFlowProvider>
 
                     <div className="flex-1 flex overflow-hidden">

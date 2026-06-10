@@ -1,10 +1,10 @@
 import Link from 'next/link';
 import { getUserDiagrams } from '@/action/loadDiagram';
-import ThemeToggle from '@/app/components/ThemeToggle';
 
 import type { Metadata, ResolvingMetadata } from 'next'
 import { auth } from '@/auth';
 import Navbar from '../components/layout/Navbar';
+import DeleteProjectButton from '@/app/components/ui/DeleteProjectButton';
 
 export async function generateMetadata(parent: ResolvingMetadata): Promise<Metadata> {
     const session = await auth()
@@ -60,20 +60,24 @@ export default async function DashboardPage() {
                         </div>
                     ) : (
                         diagrams.map((diagram) => (
-                            <Link href={`/editor/${diagram.id}`} key={diagram.id}>
+                            <Link href={`/editor/${diagram.id}`} key={diagram.id} className="relative block h-full">
+
+                                {/* 🌟 The Micro Client Component */}
+                                <DeleteProjectButton diagramId={diagram.id} diagramTitle={diagram.title} />
+
                                 <div className="bg-surface p-6 rounded-xl shadow-sm border border-surface-border hover:shadow-lg hover:border-brand-blue/50 transition-all cursor-pointer group flex flex-col h-full">
-                                    <h3 className="text-xl font-bold text-foreground group-hover:text-brand-blue transition-colors">
+                                    <h3 className="text-xl font-bold pr-8 text-foreground group-hover:text-brand-blue transition-colors">
                                         {diagram.title}
                                     </h3>
 
                                     <div className="mt-4 flex items-center gap-4 text-sm text-muted-foreground transition-colors">
                                         <span className="flex items-center gap-1">
-                                            📦 {diagram._count.nodes} Tables & Attributes
+                                            📦 {diagram._count.nodes} Tables
                                         </span>
                                     </div>
 
                                     <div className="mt-auto pt-4 border-t border-surface-border text-xs text-muted-foreground/70 transition-colors">
-                                        Last updated: {new Date(diagram.updatedAt).toLocaleDateString()}
+                                        Last updated: {new Date(diagram.updatedAt).toLocaleString()}
                                     </div>
                                 </div>
                             </Link>

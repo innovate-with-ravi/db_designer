@@ -5,7 +5,6 @@ import { prisma } from "@/lib/prisma";
 
 export async function saveDiagram(title: string, nodes: any[], edges: any[]) {
     try {
-        // 1. Gatekeeper: Ensure the user is logged in
         const session = await auth();
         if (!session?.user?.id) {
             throw new Error("Unauthorized. Please log in to save diagrams.");
@@ -16,13 +15,27 @@ export async function saveDiagram(title: string, nodes: any[], edges: any[]) {
         if (!nodes.length)
             throw new Error("Can't save an EMPTY Diagram.");
 
-        // 2. The Prisma Transaction: Save everything atomically
+        // check if title not given
+        if (title === 'Untitled Diagram') {
+            throw new Error("Please give a NAME to Diagram");
+        }
+
+        // 🌟 THE FIX: Scope the uniqueness check to the current user!
+        const existingDiagram = await prisma.diagram.findFirst({
+            where: {
+                title: title,
+                userId: userId
+            }
+        });
+
+        if (existingDiagram) {
+            throw new Error(`You already have a diagram named "${title}". Please choose a unique name.`);
+        }
+
         const newDiagram = await prisma.diagram.create({
             data: {
-                // id by default
                 title: title,
                 userId: userId,
-                // Prisma allows us to create the child nodes and edges at the exact same time!
                 nodes: {
                     create: nodes.map(node => ({
                         id: node.id,
@@ -30,11 +43,9 @@ export async function saveDiagram(title: string, nodes: any[], edges: any[]) {
                         label: node.data.label || 'Unnamed',
                         x_pos: node.position.x,
                         y_pos: node.position.y,
-                        // Save all extra custom data (hidden attributes, primary keys) as JSON
                         node_data_json: node.data,
                     }))
                 },
-                // Inside saveDiagram.ts
                 edges: {
                     create: edges.map(edge => ({
                         id: edge.id,
@@ -44,8 +55,6 @@ export async function saveDiagram(title: string, nodes: any[], edges: any[]) {
                         target_cardinality: edge.data?.targetMaximumCardinality || 'N',
                         label: edge.data?.label || 'REL',
                         type: edge.type || 'default',
-
-                        // 🌟 Catch the exact connection ports
                         source_handle: edge.sourceHandle || null,
                         target_handle: edge.targetHandle || null,
                     }))
@@ -57,6 +66,8 @@ export async function saveDiagram(title: string, nodes: any[], edges: any[]) {
 
     } catch (error) {
         console.error("Failed to save diagram:", error);
-        return { success: false, error: `Database error occurred: ${error}` };
+        // Safely extract the exact error message we threw above
+        const message = error instanceof Error ? error.message : "Database error occurred";
+        return { success: false, error: message };
     }
 }

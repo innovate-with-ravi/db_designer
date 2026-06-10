@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useTransition, useEffect, useRef, useState, useMemo } from "react";
 import { saveDiagram } from "@/action/saveDiagram";
@@ -6,9 +6,7 @@ import { useRouter } from 'next/navigation'
 import Link from "next/link";
 import ThemeToggle from "@/app/components/ThemeToggle";
 
-// Notice we use `useStore` here to make the buttons re-render when history states change
-import { useStore } from 'zustand';
-import { Undo2, Redo2 } from 'lucide-react'; // Make sure to import these!
+import { Undo2, Redo2 } from 'lucide-react';
 import useDiagramStore from "@/store/useDiagramStore";
 
 type EditorHeaderProps = {
@@ -23,14 +21,17 @@ export default function EditorHeader({ id, title, nodes, edges }: EditorHeaderPr
     const router = useRouter();
     const [syncStatus, setSyncStatus] = useState<"Saved ✅" | "Unsaved" | "Saving...">("Saved ✅");
 
-    // ... (KEEP ALL YOUR EXISTING AUTOSAVE/MEMO/EFFECT LOGIC HERE - IT IS PERFECT) ...
+    // 🌟 NEW: Local state for the editable title
+    const [localTitle, setLocalTitle] = useState(title || "Untitled Diagram");
+
+    // 🌟 UPDATED: Payload string now tracks localTitle instead of the incoming prop
     const currentPayloadString = useMemo(() => {
         const cleanNodes = nodes.map(n => ({ id: n.id, type: n.type, position: n.position, data: n.data }));
         const cleanEdges = edges.map(e => ({
             id: e.id, source: e.source, target: e.target, sourceHandle: e.sourceHandle, targetHandle: e.targetHandle, type: e.type, data: e.data
         }));
-        return JSON.stringify({ title, nodes: cleanNodes, edges: cleanEdges });
-    }, [nodes, edges, title]);
+        return JSON.stringify({ title: localTitle, nodes: cleanNodes, edges: cleanEdges });
+    }, [nodes, edges, localTitle]);
 
     const lastSavedPayload = useRef(currentPayloadString);
     const isFirstRender = useRef(true);
@@ -47,9 +48,16 @@ export default function EditorHeader({ id, title, nodes, edges }: EditorHeaderPr
             if (syncStatus === 'Unsaved') {
                 setSyncStatus("Saving...");
                 try {
-                    await fetch(`/api/diagrams/${id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payloadToSave) });
-                    setSyncStatus("Saved ✅");
-                    lastSavedPayload.current = currentPayloadString;
+                    const response = await fetch(`/api/diagrams/${id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payloadToSave) });
+                    const result = await response.json(); // Read the response to check for uniqueness errors
+
+                    if (result.success) {
+                        setSyncStatus("Saved ✅");
+                        lastSavedPayload.current = currentPayloadString;
+                    } else {
+                        setSyncStatus("Unsaved");
+                        if (result.error) alert(result.error); // Alert if duplicate name
+                    }
                 } catch (error) { setSyncStatus("Unsaved"); }
             }
         }, 3000);
@@ -76,7 +84,8 @@ export default function EditorHeader({ id, title, nodes, edges }: EditorHeaderPr
             const payloadToSave = JSON.parse(currentPayloadString);
 
             if (id === 'new') {
-                result = await saveDiagram(title, payloadToSave.nodes, payloadToSave.edges);
+                // 🌟 UPDATED: Pass localTitle to the save action
+                result = await saveDiagram(localTitle, payloadToSave.nodes, payloadToSave.edges);
                 if (result.success) router.push(`/editor/${result.diagramId}`);
             } else {
                 const response = await fetch(`/api/diagrams/${id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payloadToSave) });
@@ -86,14 +95,16 @@ export default function EditorHeader({ id, title, nodes, edges }: EditorHeaderPr
             if (result.success) {
                 setSyncStatus("Saved ✅");
                 lastSavedPayload.current = currentPayloadString;
-            } else { alert(`Error: ${result.error}`); }
+            } else {
+                setSyncStatus("Unsaved"); // Reset so they can try again
+                alert(`Error: ${result.error}`);
+            }
         });
     };
 
-    // 🌟 THE KEYBOARD LISTENER
+    // 🌟 YOUR CUSTOM KEYBOARD LISTENER (Preserved perfectly)
     useEffect(() => {
         const handleKeyDown = (event: KeyboardEvent) => {
-            // Check if user is typing inside an input field (we don't want to undo canvas if they are just typing a name!)
             if (event.target instanceof HTMLInputElement || event.target instanceof HTMLTextAreaElement) {
                 return;
             }
@@ -112,7 +123,7 @@ export default function EditorHeader({ id, title, nodes, edges }: EditorHeaderPr
 
         document.addEventListener('keydown', handleKeyDown);
         return () => document.removeEventListener('keydown', handleKeyDown);
-    }, [handleForceSave]);
+    }, [handleForceSave, syncStatus]);
 
     // Grab the state directly:
     const { undo, redo, past, future } = useDiagramStore();
@@ -132,15 +143,23 @@ export default function EditorHeader({ id, title, nodes, edges }: EditorHeaderPr
                 <div className="h-6 w-px bg-border" /> {/* Subtle vertical divider */}
 
                 <div className="flex flex-col">
-                    <h1 className="text-sm font-bold leading-tight">{title || "Untitled Diagram"}</h1>
-                    <span className="text-[10px] font-medium text-muted-foreground uppercase tracking-widest">Workspace</span>
+                    {/* 🌟 NEW: The Inline Title Input */}
+                    <input
+                        type="text"
+                        value={localTitle}
+                        onChange={(e) => setLocalTitle(e.target.value)}
+                        className="text-sm font-bold leading-tight bg-transparent border-none outline-none focus:ring-2 focus:ring-brand-blue/50 rounded px-1 -ml-1 transition-all w-48 sm:w-64"
+                        placeholder="Name your diagram..."
+                        title="Rename Diagram"
+                    />
+                    <span className="text-[10px] font-medium text-muted-foreground uppercase tracking-widest pl-1">Workspace</span>
                 </div>
             </div>
 
             {/* Right Side: Save Button, undo-redo & Theme */}
             <div className="flex items-center gap-4">
 
-                {/* 🌟 3. The Time Travel Buttons */}
+                {/* The Time Travel Buttons */}
                 <div className="flex items-center gap-1 border-r border-border pr-4 mr-2">
                     <button
                         onClick={() => undo()}
@@ -160,7 +179,7 @@ export default function EditorHeader({ id, title, nodes, edges }: EditorHeaderPr
                     </button>
                 </div>
 
-                {/* ... Save Button and Theme Toggle ... */}
+                {/* Save Button */}
                 <button
                     onClick={handleForceSave}
                     disabled={isPending || syncStatus === "Saved ✅"}
@@ -174,7 +193,10 @@ export default function EditorHeader({ id, title, nodes, edges }: EditorHeaderPr
                 </button>
 
                 <div className="h-6 w-px bg-border hidden sm:block" />
-
+                <Link href="/dashboard" className="hover:text-foreground transition-colors text-sm font-medium text-muted-foreground">
+                    Dashboard
+                </Link>
+                <div className="h-6 w-px bg-border hidden sm:block" />
                 <ThemeToggle />
             </div>
         </header>

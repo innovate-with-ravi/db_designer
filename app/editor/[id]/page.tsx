@@ -11,15 +11,17 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const er = await prisma.diagram.findFirst({ where: { id } })
 
   return {
-    title: `${er?.title}`,
+    title: `${er?.title || 'Untitled Diagram'}`,
   };
 }
 
 
-const page = async () => {
+const page = async ({ params }: Props) => {
+  const { id } = await params; //  Works perfectly
+  const er = await prisma.diagram.findFirst({ where: { id } })
 
   return (
-    <EditorPage />
+    <EditorPage title={er?.title || 'Untitled Diagram'} />
   )
 }
 

@@ -23,20 +23,22 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
     },
 
     callbacks: {
-        // 1. Triggered whenever a JWT is created or updated
-        async jwt({token, user}) {
-            if (user) {
-                token.id = user.id; // Inject database user ID into the token
+        async session({ session, token, user }: any) {
+            // If using JWT strategy, the ID is in the token.sub
+            if (token && token.sub) {
+                session.user.id = token.sub;
             }
-            return token;
-        },
-        // 2. Triggered whenever the session is checked in the browser or server
-        async session({ session, token }) {
-            // Send properties to the client, like an access_token and user id from a provider. -> see official docs
-            if (session.user) {
-                session.user.id = token.id as string; // Pass the ID from token to session object
+            // If using Database strategy, the ID is in the user object
+            else if (user && user.id) {
+                session.user.id = user.id;
             }
             return session;
         },
+        async jwt({ token, user }: any) {
+            if (user) {
+                token.sub = user.id;
+            }
+            return token;
+        }
     },
 })
