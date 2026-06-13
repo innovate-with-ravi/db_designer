@@ -14,9 +14,10 @@ type EditorHeaderProps = {
     title: string;
     nodes: any[];
     edges: any[];
+    onExportClick?: () => void; // 🌟 NEW PROP
 }
 
-export default function EditorHeader({ id, title, nodes, edges }: EditorHeaderProps) {
+export default function EditorHeader({ id, title, nodes, edges, onExportClick }: EditorHeaderProps) {
     const [isPending, startTransition] = useTransition();
     const router = useRouter();
     const [syncStatus, setSyncStatus] = useState<"Saved ✅" | "Unsaved" | "Saving...">("Saved ✅");
@@ -178,6 +179,15 @@ export default function EditorHeader({ id, title, nodes, edges }: EditorHeaderPr
                         <Redo2 size={18} />
                     </button>
                 </div>
+
+                {/* 🌟 THE NEW EXPORT BUTTON */}
+                <button
+                    onClick={onExportClick}
+                    className="text-sm font-bold px-4 py-1.5 rounded-full transition-all bg-brand-blue hover:opacity-90 text-white shadow-md shadow-brand-blue/20"
+                    title="Export Code"
+                >
+                    Export
+                </button>
 
                 {/* Save Button */}
                 <button

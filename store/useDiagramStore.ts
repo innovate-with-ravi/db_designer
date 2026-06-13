@@ -56,6 +56,10 @@ interface DiagramState {
   copySelection: (isCut?: boolean) => void;
   cutSelection: () => void;
   pasteSelection: () => void;
+
+  // dialect
+  exportDialect: 'mysql' | 'oracle' | 'prisma';
+  setExportDialect: (dialect: 'mysql' | 'oracle' | 'prisma') => void;
 }
 
 const useDiagramStore = create<DiagramState>((set, get) => ({
@@ -65,7 +69,8 @@ const useDiagramStore = create<DiagramState>((set, get) => ({
   globalErrors: [],
   activeErrorNodeId: null,
 
-  // ... inside useDiagramStore ...
+  exportDialect: 'mysql', // Default
+  setExportDialect: (dialect) => set({ exportDialect: dialect }),
 
   // 🌟 1. CLIPBOARD STATE
   clipboard: { nodes: [], edges: [] } as { nodes: any[], edges: any[] },

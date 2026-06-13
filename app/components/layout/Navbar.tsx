@@ -33,12 +33,17 @@ export default async function Navbar({ isLandingPage = false }: { isLandingPage?
                 <div className="flex items-center gap-3 sm:gap-6 text-sm font-medium text-muted-foreground">
 
                     {/* Show Docs/Features only if they aren't deep in the app */}
-                    {isLandingPage && (
+                    <Link href="/docs" className="hidden md:block hover:text-foreground transition-colors">Documentation</Link>
+                    {isLandingPage ? (
                         <>
-                            <Link href="/docs" className="hidden md:block hover:text-foreground transition-colors">Documentation</Link>
                             <Link href="#features" className="hidden md:block hover:text-foreground transition-colors">Features</Link>
                         </>
-                    )}
+                    ) :
+                        (
+                            <>
+                                <Link href="/" className="hidden md:block hover:text-foreground transition-colors">Home</Link>
+                            </>
+                        )}
 
                     {session?.user ? (
                         <div className="flex items-center gap-3 sm:gap-4">

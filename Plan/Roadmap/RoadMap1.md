@@ -30,7 +30,7 @@ Your useDiagramStore.ts file will act as the brain, holding:
 
 __________________
 
-### **4\. The Backend Engine (Next.js API Routes)**
+### **4\. The Backend Engine (Next.js API Routes)** <b>(done)</b>
 
 * api/diagrams/route.ts: (GET/POST) Fetches a user's saved diagrams or creates a new one in your MySQL database.  
 * api/diagrams/\[id\]/route.ts: (PUT/DELETE) Auto-saves diagram changes and deletes projects.  

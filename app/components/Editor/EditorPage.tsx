@@ -12,10 +12,9 @@ import Sidebar from '@/app/components/Editor/LeftSidebar';
 import PropertiesPanel from '@/app/components/Editor/PropertiesPanel';
 import RelationshipEdge from '@/app/components/edges/RelationshipEdge';
 
-import { generateMySQL } from '@/lib/sqlGenerator';
+import { generateSQL } from '@/lib/sqlGenerator';
 import { compileDiagramState } from '@/lib/compiler';
 import { generateSqlHtml } from '@/action/generateSqlHtml';
-import SqlOutputModal from '@/app/components/Editor/SqlOutputModal';
 
 import ValidationConsole from '@/app/components/Editor/ValidationConsole';
 
@@ -24,6 +23,7 @@ import { ValidationError } from '@/store/useDiagramStore';
 import EditorHeader from './EditorHeader';
 import { getDiagramById } from '@/action/loadDiagram';
 import { useParams } from 'next/navigation';
+import ExportModal from './ExportModal';
 
 // Define these OUTSIDE the component to prevent unnecessary recreation
 const nodeTypes = {
@@ -220,7 +220,7 @@ function DnDCanvas() {
 export default function EditorPage({ title }: { title: string }) {
     const params = useParams()
 
-    const { nodes, edges, validateDiagram, setEntityExpanded, activeExpandedEntityId, setGlobalErrors, setDiagram } = useDiagramStore();
+    const { nodes, edges, validateDiagram, setEntityExpanded, activeExpandedEntityId, setGlobalErrors, setDiagram, exportDialect } = useDiagramStore();
 
     const { undo, redo, copySelection, cutSelection, pasteSelection } = useDiagramStore();
 
@@ -345,7 +345,7 @@ export default function EditorPage({ title }: { title: string }) {
             return;
         }
 
-        const finalSql = generateMySQL(compressedData, edges);
+        const finalSql = generateSQL(compressedData, edges, exportDialect as any);
         const htmlCode = await generateSqlHtml(finalSql);
         setSqlOutput({ sql: finalSql, html: htmlCode });
     };
@@ -355,8 +355,14 @@ export default function EditorPage({ title }: { title: string }) {
             setEntityExpanded(null)
     }, [nodes, activeExpandedEntityId, setEntityExpanded])
 
-    // console.log("nodes: ", nodes);
-    // console.log("edges: ", edges);
+
+    const [isExportModalOpen, setIsExportModalOpen] = useState(false);
+
+    const handleExportClick = () => {
+        const isTopologicallyValid = validateDiagram();
+        if (!isTopologicallyValid) return;
+        setIsExportModalOpen(true);
+    };
 
     // 🌟 Loading Screen Fix
     if (isHydrating) {
@@ -389,34 +395,25 @@ export default function EditorPage({ title }: { title: string }) {
 
             {/* 🌟 MAIN EDITOR WRAPPER */}
             <div className="hidden md:flex w-screen h-screen flex-col overflow-hidden bg-background transition-colors duration-300">
-                <EditorHeader id={params.id as string} title={title} nodes={nodes} edges={edges} />
-                <ReactFlowProvider>
+                <EditorHeader id={params.id as string} title={title} nodes={nodes} edges={edges} onExportClick={handleExportClick} />
 
+                <ReactFlowProvider>
                     <div className="flex-1 flex overflow-hidden">
                         <Sidebar />
 
-                        {/* 🌟 The Main Canvas Background Container */}
                         <div className="flex-1 relative bg-background transition-colors duration-300">
-                            <button
-                                onClick={handleGenerate}
-                                className="absolute top-4 right-4 z-50 bg-brand-blue text-white px-6 py-3 rounded-md font-bold shadow-lg hover:opacity-90 transition-all"
-                            >
-                                Generate SQL
-                            </button>
+                            {/* 🌟 Canvas is totally clean now! No floating button. */}
                             <DnDCanvas />
                         </div>
 
                         <PropertiesPanel />
                     </div>
-
                     <ValidationConsole />
-
                 </ReactFlowProvider>
 
-                {sqlOutput && (
-                    <SqlOutputModal sql={sqlOutput.sql} htmlCode={sqlOutput.html} onClose={() => setSqlOutput(null)} />
-                )}
-            </div>
+                {/* 🌟 The Self-Contained Modal */}
+                <ExportModal isOpen={isExportModalOpen} onClose={() => setIsExportModalOpen(false)} />
+            </div >
         </>
     );
 }
