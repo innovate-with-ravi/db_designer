@@ -149,6 +149,12 @@ export default function EditorHeader({ id, title, nodes, edges, onExportClick }:
                         type="text"
                         value={localTitle}
                         onChange={(e) => setLocalTitle(e.target.value)}
+                        onKeyDown={(e: any) => {
+                            if (e.code == 'Enter' || e.code == "Escape") {
+                                handleForceSave();
+                                e.target.blur();
+                            }
+                        }}
                         className="text-sm font-bold leading-tight bg-transparent border-none outline-none focus:ring-2 focus:ring-brand-blue/50 rounded px-1 -ml-1 transition-all w-48 sm:w-64"
                         placeholder="Name your diagram..."
                         title="Rename Diagram"

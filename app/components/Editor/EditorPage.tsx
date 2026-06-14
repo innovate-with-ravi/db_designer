@@ -219,6 +219,7 @@ function DnDCanvas() {
 
 export default function EditorPage({ title }: { title: string }) {
     const params = useParams()
+    const { theme, resolvedTheme } = useTheme()
 
     const { nodes, edges, validateDiagram, setEntityExpanded, activeExpandedEntityId, setGlobalErrors, setDiagram, exportDialect } = useDiagramStore();
 
@@ -320,35 +321,35 @@ export default function EditorPage({ title }: { title: string }) {
         return () => document.removeEventListener('keydown', handleKeyDown);
     }, [undo, redo]);
 
-    const handleGenerate = async () => {
-        const isTopologicallyValid = validateDiagram();
-        if (!isTopologicallyValid) return;
+    // const handleGenerate = async () => {
+    //     const isTopologicallyValid = validateDiagram();
+    //     if (!isTopologicallyValid) return;
 
-        const compressedData = compileDiagramState(nodes, edges);
-        const validationResult = databaseSchema.safeParse(compressedData);
+    //     const compressedData = compileDiagramState(nodes, edges);
+    //     const validationResult = databaseSchema.safeParse(compressedData);
 
-        if (!validationResult.success) {
-            const zodErrors: ValidationError[] = validationResult.error.issues.map((issue) => {
-                const entityIndex = issue.path[0] as number;
-                const brokenEntity = compressedData[entityIndex];
-                const fieldName = issue.path[issue.path.length - 1] as string;
+    //     if (!validationResult.success) {
+    //         const zodErrors: ValidationError[] = validationResult.error.issues.map((issue) => {
+    //             const entityIndex = issue.path[0] as number;
+    //             const brokenEntity = compressedData[entityIndex];
+    //             const fieldName = issue.path[issue.path.length - 1] as string;
 
-                const customMessage = `Table '${brokenEntity.data.label}' has an error in '${fieldName}': ${issue.message}`;
+    //             const customMessage = `Table '${brokenEntity.data.label}' has an error in '${fieldName}': ${issue.message}`;
 
-                return {
-                    message: customMessage,
-                    nodeId: brokenEntity.id
-                };
-            });
+    //             return {
+    //                 message: customMessage,
+    //                 nodeId: brokenEntity.id
+    //             };
+    //         });
 
-            setGlobalErrors(zodErrors);
-            return;
-        }
+    //         setGlobalErrors(zodErrors);
+    //         return;
+    //     }
 
-        const finalSql = generateSQL(compressedData, edges, exportDialect as any);
-        const htmlCode = await generateSqlHtml(finalSql);
-        setSqlOutput({ sql: finalSql, html: htmlCode });
-    };
+    //     const finalSql = generateSQL(compressedData, edges, exportDialect as any);
+    //     const htmlCode = await generateSqlHtml(finalSql, resolvedTheme ?? theme);
+    //     setSqlOutput({ sql: finalSql, html: htmlCode });
+    // };
 
     useEffect(() => {
         if (!nodes.some((n) => n.id == activeExpandedEntityId))

@@ -110,8 +110,7 @@ const useDiagramStore = create<DiagramState>((set, get) => ({
     get().takeSnapshot(); // 📸 SNAPSHOT before deletion
 
     const cutNodeIds = new Set(clipboard.nodes.map((n: any) => n.id));
-
-    // Remove them from the canvas
+    
     set({
       nodes: nodes.filter(n => !cutNodeIds.has(n.id)),
       edges: edges.filter(e => !cutNodeIds.has(e.source) && !cutNodeIds.has(e.target))
