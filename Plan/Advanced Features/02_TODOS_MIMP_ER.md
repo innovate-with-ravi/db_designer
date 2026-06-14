@@ -1,8 +1,10 @@
-* multi-valued attributes on an entity handling 
+* composite attr
 * add datatypes, sizes and more sql features to attributes
-* [add types(multi, derived, composite) for hidden attributes]->optional in propsPanel
+
+In propsPanel: 
+* add types(multi, derived, composite) for hidden attributes
+* also add option to change type of visual attributes
 
 * attributes on relnp
 * associative relnp-entity
-* composite attr
 * verify metadata & overall strucure at last
