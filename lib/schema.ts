@@ -59,14 +59,31 @@ export const attributeSchema = z.preprocess(
     (attr: any) => ({
         name: attr?.name || attr?.data?.label || '',
         dataType: attr?.dataType || attr?.data?.dataType || '',
-        size: attr?.size || attr?.data?.size || ''
+        size: attr?.size || attr?.data?.size || '',
+        // 🌟 FIX 1: Safely extract attributeType, defaulting to 'simple'
+        attributeType: String(attr?.attributeType || attr?.data?.attributeType || 'simple').toLowerCase().trim()
     }),
     z.object({
         name: z.string().min(1, { message: "Column name cannot be empty" }),
-        dataType: z.string().min(1, { message: "Data type is required" }),
-        size: z.string().optional(),
+        // 🌟 FIX 2: Make this optional here so Zod doesn't crash before reaching the refine block!
+        dataType: z.string().optional(),
+        attributeType: z.string().optional(),
+        size: z.string().optional()
     }).refine((attr) => {
-        if ((attr.dataType === 'VARCHAR' || attr.dataType === 'CHAR') && (!attr.size || attr.size === '')) {
+        // datatype check
+        if (attr.attributeType === 'composite') {
+            return true; // Pass instantly if composite
+        }
+        return !!attr.dataType && attr.dataType.trim().length > 0;
+    }, { message: "Data type is required", path: ["dataType"] }
+    ).refine((attr) => {
+        // size check
+        if (attr.attributeType === 'composite') {
+            return true; // Pass instantly if composite
+        }
+
+        const dataType = attr.dataType?.toUpperCase?.() ?? '';
+        if ((dataType === 'VARCHAR' || dataType === 'CHAR') && (!attr.size || attr.size.trim() === '')) {
             return false;
         }
         return true;
@@ -74,12 +91,13 @@ export const attributeSchema = z.preprocess(
     ).refine((attr) => {
         // THE GATEKEEPER: Check if the uppercase name is in our Set
         return !SQL_RESERVED_WORDS.has(attr.name.toUpperCase());
-    }, { message: `Attribute Name cannot be an SQL reserved keyword`, path: ["name"] })
+    }, { message: `Attribute Name cannot be an SQL reserved keyword`, path: ["name"] }
+    )
 );
+
 // 2. The Entity Schema
 export const entitySchema = z.object({
     id: z.string(),
-    // Zod must look inside the "data" object because that's where React Flow stores it!
     data: z.object({
         label: z.string().min(1, { message: "Table name is required" }),
         primaryKey: z.string().min(1, { message: "Table is missing a Primary Key" }),
@@ -89,10 +107,13 @@ export const entitySchema = z.object({
     const colNames = new Set<string>();
 
     for (const attr of entity.attributes) {
-        if (colNames.has(attr.name)) {
-            return false;
+        // Only check physical columns (composites themselves don't become columns, their children do)
+        if (attr.attributeType !== 'composite') {
+            if (colNames.has(attr.name)) {
+                return false;
+            }
+            colNames.add(attr.name);
         }
-        colNames.add(attr.name);
     }
 
     return true;
@@ -102,10 +123,10 @@ export const entitySchema = z.object({
 }).refine((entity) => {
     // THE GATEKEEPER: Check if the uppercase name is in our Set
     return !SQL_RESERVED_WORDS.has(entity.data.label.toUpperCase());
-}, { message: `Entity Name cannot be an SQL reserved keyword`, path: ["name"] })
-
-
-// (Note: We removed the old pkCount == 1 refine block because primaryKey is now a single string, so it physically cannot be more than 1).
+}, {
+    message: `Entity Name cannot be an SQL reserved keyword`,
+    path: ["data", "label"] // 🌟 FIX 3: Point the error exactly to data.label so the Validation Console catches it properly!
+});
 
 // 3. The Master Schema
 export const databaseSchema = z.array(entitySchema);

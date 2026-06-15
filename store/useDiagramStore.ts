@@ -110,7 +110,7 @@ const useDiagramStore = create<DiagramState>((set, get) => ({
     get().takeSnapshot(); // 📸 SNAPSHOT before deletion
 
     const cutNodeIds = new Set(clipboard.nodes.map((n: any) => n.id));
-    
+
     set({
       nodes: nodes.filter(n => !cutNodeIds.has(n.id)),
       edges: edges.filter(e => !cutNodeIds.has(e.source) && !cutNodeIds.has(e.target))
@@ -258,11 +258,35 @@ const useDiagramStore = create<DiagramState>((set, get) => ({
         errors.push({ message: `Table '${tableName}' is missing a Primary Key.`, nodeId: entity.id });
       }
 
-      const visualAttrs = edges
-        .filter((e) => e.source === entity.id || e.target === entity.id)
-        .map((e) => nodes.find((n) => n?.id === (e.source === entity.id ? e.target : e.source)))
-        .filter((n) => n?.type === 'attribute')
-        .map((n) => ({ name: n?.data.label, dataType: n?.data.dataType, size: n?.data.size }));
+      // 🌟 THE FIX: Graph Traversal to find ALL connected attributes (including nested children)
+      const visualAttrs: any[] = [];
+      const visited = new Set<string>();
+
+      const traverse = (currentNodeId: string) => {
+        if (visited.has(currentNodeId)) return;
+        visited.add(currentNodeId);
+
+        const connectedEdges = edges.filter(e => e.source === currentNodeId || e.target === currentNodeId);
+
+        connectedEdges.forEach(edge => {
+          const otherNodeId = edge.source === currentNodeId ? edge.target : edge.source;
+          const otherNode = nodes.find(n => n.id === otherNodeId);
+
+          // 🛑 Make sure we don't accidentally crawl into another Entity!
+          if (otherNode && otherNode.type === 'attribute' && !visited.has(otherNodeId)) {
+            visualAttrs.push({
+              id: otherNode.id, // Keep ID so Focus & Fix works perfectly
+              name: otherNode.data.label,
+              dataType: otherNode.data.dataType,
+              size: otherNode.data.size,
+              attributeType: otherNode.data.attributeType
+            });
+            traverse(otherNodeId); // Crawl deeper
+          }
+        });
+      };
+
+      traverse(entity.id);
 
       const hiddenAttrs = entity.data.hiddenAttributes || [];
       const allAttrs = [...visualAttrs, ...hiddenAttrs as any];
@@ -274,15 +298,19 @@ const useDiagramStore = create<DiagramState>((set, get) => ({
       } else {
         allAttrs.forEach((attr) => {
           const attrName = attr.name || 'Unnamed_Column';
+          const isComposite = String(attr.attributeType).toLowerCase().trim() === 'composite';
 
           if (!isValidName(attrName)) {
-            errors.push({ message: `Column '${attrName}' in table '${tableName}' is invalid. No spaces or special characters allowed.`, nodeId: entity.id });
+            errors.push({ message: `Column '${attrName}' in table '${tableName}' is invalid. No spaces or special characters allowed.`, nodeId: attr.id || entity.id });
           }
 
-          if (!attr.dataType || attr.dataType.trim() === '') {
-            errors.push({ message: `Column '${attrName}' in table '${tableName}' is missing a Data Type.`, nodeId: entity.id });
-          } else if ((attr.dataType === 'VARCHAR' || attr.dataType === 'CHAR') && (!attr.size || attr.size.trim() === '')) {
-            errors.push({ message: `Column '${attrName}' in table '${tableName}' requires a Size (e.g., 255).`, nodeId: entity.id });
+          if (!isComposite) {
+            if (!attr.dataType || attr.dataType.trim() === '') {
+              // 🌟 Point the error exactly to the child attribute node ID!
+              errors.push({ message: `Column '${attrName}' in table '${tableName}' is missing a Data Type.`, nodeId: attr.id || entity.id });
+            } else if ((attr.dataType === 'VARCHAR' || attr.dataType === 'CHAR') && (!attr.size || attr.size.trim() === '')) {
+              errors.push({ message: `Column '${attrName}' in table '${tableName}' requires a Size (e.g., 255).`, nodeId: attr.id || entity.id });
+            }
           }
         });
       }

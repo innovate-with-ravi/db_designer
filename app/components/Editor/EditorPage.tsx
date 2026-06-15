@@ -41,6 +41,9 @@ function DnDCanvas() {
     const { nodes, edges, onNodesChange, onEdgesChange, onConnect, addNode, takeSnapshot } = useDiagramStore();
     const { screenToFlowPosition } = useReactFlow();
 
+    console.log("node:", nodes);
+    console.log("edges:", edges);
+
     // 🌟 1. Grab the global theme for React Flow!
     const { resolvedTheme } = useTheme();
 
@@ -97,76 +100,56 @@ function DnDCanvas() {
 
         if (!sourceNode || !targetNode) return false;
 
-        // 🌟 1. Prevent Attribute to Attribute (Moved back for perfect UX)
-        if (sourceNode.type === 'attribute' && targetNode.type === 'attribute') {
-            return false;
+        // Prevent self-loops
+        if (sourceNode === targetNode) return false;
+
+        // a simple attribute can have only one edge
+        if (sourceNode.type == 'attribute' && sourceNode.data.attributeType == 'simple') {
+            if (edges.some((e) => e.source == sourceNode.id || e.target == sourceNode.id))
+                return false
+        }
+        if (targetNode.type == 'attribute' && targetNode.data.attributeType == 'simple') {
+            if (edges.some((e) => e.source == targetNode.id || e.target == targetNode.id))
+                return false
         }
 
+        // SCENARIO 1: Entity to Entity
         const isEntityToEntity = sourceNode.type === 'entity' && targetNode.type === 'entity';
+        if (isEntityToEntity) return true;
+
+        // 🌟 SCENARIO 2: Composite Attribute Logic
+        if (sourceNode.type === 'attribute' && targetNode.type === 'attribute') {
+            const isSourceComposite = String(sourceNode.data?.attributeType).toLowerCase() === 'composite';
+            const isTargetComposite = String(targetNode.data?.attributeType).toLowerCase() === 'composite';
+
+            // Allow if at least one is composite
+            if (isSourceComposite || isTargetComposite) {
+                const edgeAlreadyExists = edges.some(
+                    (edge) =>
+                        (edge.source === connection.source && edge.target === connection.target) ||
+                        (edge.source === connection.target && edge.target === connection.source)
+                );
+                return !edgeAlreadyExists;
+            }
+            return false; // Block simple-to-simple
+        }
+
+        // SCENARIO 3: Entity to Attribute
         const isEntityToAttr =
             (sourceNode.type === 'entity' && targetNode.type === 'attribute') ||
             (sourceNode.type === 'attribute' && targetNode.type === 'entity');
 
-        // 🌟 2. Allow Entity to Entity multiple times!
-        // If they are connecting two tables, approve it immediately. 
-        // onConnect already generates a unique ID for each new line.
-        if (isEntityToEntity) {
-            return true;
-        }
+        if (!isEntityToAttr) return false;
 
-        if (!isEntityToAttr) return true;
-
-        // 🌟 3. Prevent duplicate connections to the SAME attribute
         const edgeAlreadyExists = edges.some(
             (edge) =>
                 (edge.source === connection.source && edge.target === connection.target) ||
                 (edge.source === connection.target && edge.target === connection.source)
         );
 
-        if (edgeAlreadyExists) {
-            return false; // Turns the drag line red!
-        }
+        if (edgeAlreadyExists) return false;
 
-        // --- Keep your existing PK and 4-attribute limit logic below ---
-        const entityId = sourceNode.type === 'entity' ? sourceNode.id : targetNode.id;
-
-        const draggingNode = sourceNode.id === entityId ? targetNode : sourceNode;
-        const isDraggingKey = draggingNode.data?.attributeType === 'key';
-
-        if (isDraggingKey) {
-            const hasExistingKey = edges.some((edge) => {
-                if (edge.source !== entityId && edge.target !== entityId) return false;
-                const otherNodeId = edge.source === entityId ? edge.target : edge.source;
-                const otherNode = nodes.find((n) => n.id === otherNodeId);
-                return otherNode?.data?.attributeType === 'key';
-            });
-
-            if (hasExistingKey) {
-                setShowPKModal(true);
-                setTimeout(() => setShowPKModal(false), 2000);
-                return false;
-            }
-        }
-
-        let attributeLineCount = 0;
-
-        edges.forEach((edge) => {
-            if (edge.source === entityId || edge.target === entityId) {
-                const otherNodeId = edge.source === entityId ? edge.target : edge.source;
-                const otherNode = nodes.find((n) => n.id === otherNodeId);
-                if (otherNode?.type === 'attribute') {
-                    attributeLineCount++;
-                }
-            }
-        });
-
-        if (attributeLineCount >= 4) {
-            const { setEntityExpanded } = useDiagramStore.getState();
-            setEntityExpanded(entityId);
-            return false;
-        }
-
-        return true;
+        return true; // (Keep your PK and max-attribute limits here if needed)
     }, []);
 
     return (

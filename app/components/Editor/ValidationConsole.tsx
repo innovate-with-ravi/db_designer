@@ -52,9 +52,21 @@ export default function ValidationConsole() {
                     const brokenEntity = compressedData[entityIndex];
                     const fieldName = issue.path[issue.path.length - 1] as string;
 
+                    // 🌟 THE FIX: Intelligently extract exactly which attribute broke!
+                    let specificNodeId = brokenEntity.id;
+                    let customMessage = `Table '${brokenEntity.data?.label || 'Unknown'}' has an error in '${fieldName}': ${issue.message}`;
+
+                    if (issue.path[1] === 'attributes' && typeof issue.path[2] === 'number') {
+                        const brokenAttr = brokenEntity.attributes[issue.path[2]];
+                        const attrLabel = /*brokenAttr.name ||*/ brokenAttr.data?.label || `Attribute ${issue.path[2]}`;
+                        specificNodeId = brokenAttr.id || brokenEntity.id;
+
+                        customMessage = `Attribute '${attrLabel}' (in Table '${brokenEntity.data?.label}') has an error in '${fieldName}': ${issue.message}`;
+                    }
+
                     return {
-                        message: `Table '${brokenEntity.data.label}' has an error in '${fieldName}': ${issue.message}`,
-                        nodeId: brokenEntity.id
+                        message: customMessage,
+                        nodeId: specificNodeId
                     };
                 });
                 setGlobalErrors(remainingErrors);
@@ -64,6 +76,28 @@ export default function ValidationConsole() {
         return () => clearTimeout(debounceTimer);
     }, [nodes, edges, isOpen, setGlobalErrors, validateDiagram]);
 
+
+    // Graph Traversal to find the Parent Entity of a broken attribute!
+    const findParentEntityId = (childId: string, visited = new Set<string>()): string | null => {
+
+        if (visited.has(childId)) return null;
+        visited.add(childId);
+
+        const directEdges = edges.filter(e => e.target === childId || e.source === childId);
+
+        for (const edge of directEdges) {
+            const otherId = edge.source === childId ? edge.target : edge.source;
+            const otherNode = nodes.find(n => n.id === otherId);
+
+            if (otherNode?.type === 'entity') return otherNode.id;
+            if (otherNode?.type === 'attribute') {
+                const parentEntity = findParentEntityId(otherId, visited);
+                if (parentEntity) return parentEntity;
+            }
+        }
+        return null;
+    };
+
     const handleFixClick = (nodeId: string | null) => {
         if (!nodeId) return;
         const node = nodes.find(n => n.id === nodeId);
@@ -72,7 +106,12 @@ export default function ValidationConsole() {
         setTimeout(() => {
             setCenter(node.position.x + 40, node.position.y, { zoom: 1.2, duration: 800 });
         }, 220);
-        setEntityExpanded(nodeId);
+
+        // 🌟 Automatically expand the correct entity panel even if an attribute broke
+        const entityIdToExpand = node.type === 'entity' ? node.id : findParentEntityId(node.id);
+        if (entityIdToExpand) setEntityExpanded(entityIdToExpand);
+
+        // bug here: why to slide-out propsPanel
         setActiveErrorNodeId(nodeId);
         setTimeout(() => setActiveErrorNodeId(null), 3000);
     };
@@ -81,7 +120,7 @@ export default function ValidationConsole() {
 
     return (
         <div
-            className="w-full bg-destructive/5 flex flex-col shadow-[0_-10px_40px_rgba(0,0,0,0.05)] border-t border-destructive/20 shrink-0 relative z-100 backdrop-blur-sm transition-colors duration-300"
+            className="w-full bg-destructive/5 flex flex-col shadow-[0_-10px_40px_rgba(0,0,0,0.05)] border-t border-destructive/20 shrink-0 relative z-[100] backdrop-blur-sm transition-colors duration-300"
             style={{ height: `${consoleHeight}px` }}
         >
             <div

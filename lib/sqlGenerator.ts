@@ -6,7 +6,6 @@ const mapDataType = (dataType: string, dialect: SQLDialect) => {
     const upperType = (dataType || 'VARCHAR').toUpperCase();
     if (dialect === 'mysql') return upperType;
 
-    // Oracle specific type mappings
     if (dialect === 'oracle') {
         if (upperType === 'VARCHAR') return 'VARCHAR2';
         if (upperType === 'INT' || upperType === 'INTEGER') return 'NUMBER';
@@ -20,12 +19,18 @@ const getPKDetails = (entity: any) => {
     const pkIdentifier = entity.data?.primaryKey;
     if (!pkIdentifier) return null;
 
-    const rawAttr = entity.attributes.find((attr: any) => attr.id === pkIdentifier || attr.name === pkIdentifier);
+    // 🌟 BUILT-IN FALLBACKS: Check id, flat name, and nested label!
+    const rawAttr = entity.attributes.find((attr: any) =>
+        attr.id === pkIdentifier ||
+        attr.name === pkIdentifier ||
+        attr.data?.label === pkIdentifier
+    );
+
     if (!rawAttr) return null;
 
     return {
-        name: rawAttr.name || rawAttr.data?.label,
-        dataType: rawAttr.dataType || rawAttr.data?.dataType,
+        name: rawAttr.name || rawAttr.data?.label || 'ID',
+        dataType: rawAttr.dataType || rawAttr.data?.dataType || 'INT',
         size: rawAttr.size || rawAttr.data?.size
     };
 };
@@ -64,7 +69,7 @@ export const preProcessRelationships = (compiledEntities: any[], edges: any[]) =
                     { name: fk1Name, dataType: sourcePK.dataType, size: sourcePK.size, referencesTable: sourceNode.data.label, referencesCol: sourcePK.name },
                     { name: fk2Name, dataType: targetPK.dataType, size: targetPK.size, referencesTable: targetNode.data.label, referencesCol: targetPK.name }
                 ],
-                compositePK: [fk1Name, fk2Name] // 🌟 Explicit Composite PK
+                compositePK: [fk1Name, fk2Name]
             };
             processedEntities.push(junctionTable);
             return;
@@ -98,36 +103,48 @@ export const preProcessRelationships = (compiledEntities: any[], edges: any[]) =
         });
     });
 
-    // 🌟 THE 1NF NORMALIZATION ENGINE
+    // 🌟 THE BULLETPROOF 1NF NORMALIZATION ENGINE
     const normalizedChildTables: any[] = [];
 
     processedEntities.forEach(entity => {
         const pk = getPKDetails(entity);
-        if (!pk) return;
+        if (!pk) return; // Cannot generate 1NF without a parent PK
 
         const standardAttributes: any[] = [];
 
         entity.attributes.forEach((attr: any) => {
-            if (attr.data?.attributeType === 'multivalued') {
+            // 🌟 THE FIX: Strip hyphens, spaces, and handle both Flat (Hidden) and Nested (Visual) attributes!
+            // Turns "Multi-Valued", "multi_valued", or "multivalued" all into "multivalued"
+            const rawType = String(attr.attributeType || attr.data?.attributeType || '').toLowerCase().replace(/[^a-z]/g, '');
 
+            if (rawType === 'multivalued') {
                 // 1. Rip it out of the parent table
                 const attrName = attr.name || attr.data?.label || 'Value';
-                const childTableName = `${entity.data.label}_${attrName}`;
-                const fkName = `${entity.data.label.toLowerCase()}_${pk.name}`;
+                const parentName = entity.data?.label || 'Parent';
+
+                const childTableName = `${parentName}_${attrName}`;
+                const fkName = `${parentName.toLowerCase()}_${pk.name}`;
 
                 // 2. Automatically generate the 1NF Child Table
                 normalizedChildTables.push({
-                    id: `child_${attr.id}`,
+                    id: `child_${attr.id || Math.random()}`,
                     data: { label: childTableName, primaryKey: 'COMPOSITE' },
                     attributes: [
-                        // The value itself becomes a standard column
-                        { ...attr, name: attrName, data: { ...attr.data, attributeType: 'simple' } }
+                        // The value itself becomes a standard simple column in the new table
+                        {
+                            ...attr,
+                            name: attrName,
+                            attributeType: 'simple', // Overwrite flat
+                            data: { ...(attr.data || {}), attributeType: 'simple', label: attrName } // Overwrite nested
+                        }
                     ],
                     foreignKeys: [
                         {
                             name: fkName,
-                            dataType: pk.dataType, size: pk.size,
-                            referencesTable: entity.data.label, referencesCol: pk.name
+                            dataType: pk.dataType,
+                            size: pk.size,
+                            referencesTable: parentName,
+                            referencesCol: pk.name
                         }
                     ],
                     compositePK: [fkName, attrName] // Primary Key is (Parent_ID, Value)
@@ -166,8 +183,10 @@ const buildTableSQL = (entity: any, dialect: SQLDialect) => {
     entity.attributes.forEach((rawAttr: any) => {
         const name = rawAttr.name || rawAttr.data?.label;
 
-        // 🌟 Derived Attribute Logic: Do not generate a physical column
-        if (rawAttr.data?.attributeType === 'derived') {
+        // 🌟 Robust Derived Attribute Logic
+        const rawType = String(rawAttr.attributeType || rawAttr.data?.attributeType || '').toLowerCase().replace(/[^a-z]/g, '');
+
+        if (rawType === 'derived') {
             comments.push(`    -- Note: '${name}' is a derived attribute and should be calculated at the application layer.`);
             return;
         }
@@ -197,15 +216,16 @@ const buildTableSQL = (entity: any, dialect: SQLDialect) => {
         });
     }
 
-    // 🌟 Clean Composite PK Generator
     if (entity.compositePK && entity.compositePK.length > 0) {
         constraints.unshift(`    PRIMARY KEY (${entity.compositePK.join(', ')})`);
     }
 
-    const allTableLines = [...columnDefinitions, ...constraints];
-    tableScript += comments.join('\n');
-    tableScript += '\n'
+    // Clean formatting for comments vs columns
+    if (comments.length > 0) {
+        tableScript += comments.join('\n') + '\n';
+    }
 
+    const allTableLines = [...columnDefinitions, ...constraints];
     tableScript += allTableLines.join(',\n');
     tableScript += `\n);\n\n`;
 

@@ -7,7 +7,6 @@ const EntityNode = ({ data, id }: any) => {
     const [label, setLabel] = useState(data.label);
     const [isEditing, setIsEditing] = useState(false);
 
-    // If the global store's label changes (via Undo/Redo), update our local input text.
     useEffect(() => {
         setLabel(data.label);
     }, [data.label]);
@@ -17,11 +16,30 @@ const EntityNode = ({ data, id }: any) => {
     const hasError = useMemo(() => {
         const hiddenAttrs = data.hiddenAttributes || [];
 
-        const visualAttrs = edges
-            .filter(e => e.source === id || e.target === id)
-            .map(e => nodes.find(n => n.id === (e.source === id ? e.target : e.source)))
-            .filter(n => n?.type === 'attribute')
-            .map(n => n?.data || {});
+        // 🌟 FAANG Algorithm: BFS Traversal to catch deep sub-attributes!
+        const visualAttrs: any[] = [];
+        const visited = new Set<string>();
+
+        const traverse = (currentNodeId: string) => {
+            if (visited.has(currentNodeId)) return;
+            visited.add(currentNodeId);
+
+            const connectedEdges = edges.filter(e => e.source === currentNodeId || e.target === currentNodeId);
+
+            connectedEdges.forEach(edge => {
+                const otherNodeId = edge.source === currentNodeId ? edge.target : edge.source;
+                const otherNode = nodes.find(n => n.id === otherNodeId);
+
+                // Only crawl into attributes, never into other entities!
+                if (otherNode && otherNode.type === 'attribute' && !visited.has(otherNodeId)) {
+                    visualAttrs.push(otherNode.data || {});
+                    traverse(otherNodeId); // Crawl deeper
+                }
+            });
+        };
+
+        // Start traversal from this specific Entity
+        traverse(id);
 
         const allAttrs = [...hiddenAttrs, ...visualAttrs];
 
@@ -29,10 +47,16 @@ const EntityNode = ({ data, id }: any) => {
 
         if ((!PK || PK.length == 0) && allAttrs.length > 0) return true;
 
-        const hasMissingType = allAttrs.some(attr => !attr.dataType || attr.dataType === '');
+        const hasMissingType = allAttrs.some(attr => {
+            const isComposite = String(attr.attributeType).toLowerCase().trim() === 'composite';
+            return !isComposite && (!attr.dataType || attr.dataType === '');
+        });
         if (hasMissingType) return true;
 
-        const hasMissingSize = allAttrs.some(attr => attr.dataType === 'VARCHAR' && (attr.size === '' || !attr.size));
+        const hasMissingSize = allAttrs.some(attr => {
+            const isComposite = String(attr.attributeType).toLowerCase().trim() === 'composite';
+            return !isComposite && attr.dataType === 'VARCHAR' && (!attr.size || attr.size === '');
+        });
         if (hasMissingSize) return true;
 
         return false;

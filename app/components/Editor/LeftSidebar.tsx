@@ -83,6 +83,15 @@ export default function Sidebar() {
                 >
                     Derived
                 </div>
+
+                {/* Composite Attribute (FIXED TYPO & ADDED STYLING) */}
+                <div
+                    className={`${itemBaseClass} rounded-full border-[thin] border-foreground/40 bg-surface-hover shadow-inner mb-2`}
+                    onDragStart={(event) => onDragStart(event, 'attribute', 'composite')}
+                    draggable
+                >
+                    Composite
+                </div>
             </div>
         </div>
     );
