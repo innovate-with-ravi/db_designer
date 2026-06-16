@@ -1,4 +1,11 @@
 ```
+└── 📁action
+    ├── generateSqlHtml.ts
+    ├── loadDiagram.ts
+    └── saveDiagram.ts
+```
+
+```
 └── 📁app
     └── 📁api
         └── 📁auth
@@ -47,3 +54,20 @@
     ├── layout.tsx
     └── page.tsx
 ```
+
+```
+└── 📁lib
+    ├── compiler.ts
+    ├── edgeUtils.ts
+    ├── prisma.ts
+    ├── prismaGenerator.ts
+    ├── schema.ts
+    ├── sqlGenerator.ts
+    └── utils.ts
+```
+
+```
+└── 📁store
+    └── useDiagramStore.ts
+```
+

@@ -46,8 +46,9 @@ Your own database to save user projects.
 * **diagram\_edges**: (id, diagram\_id, source\_node, target\_node, source\_cardinality, target\_cardinality).
 
 
-### **6\. Docs**
---you can leave the docs for now, because I am thinking of a generic docs roadmap so that we don't have to create a page for every single feature in doc & going to discuss it with you later. So, for now you can just fix the navigation.
+### **6\. Docs**: open source contributors
+
+I am thinking of a generic docs roadmap so that we don't have to create a page for every single feature in doc.
 
 I want a docs roadmap from you so that we can make a generic doc template and we don't have to write every single feature's document page. 
 Something like a generic blog's template!
