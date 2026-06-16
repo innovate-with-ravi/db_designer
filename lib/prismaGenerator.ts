@@ -17,6 +17,44 @@ export const generatePrisma = (compiledEntities: any[], edges: any[]) => {
 
     const processedEntities = preProcessRelationships(compiledEntities, edges);
 
+    // 🌟 THE FIX: Pre-calculate all Prisma Back-Relations
+    const backRelations: Record<string, string[]> = {};
+
+    processedEntities.forEach((entity: any) => {
+        if (entity.foreignKeys && entity.foreignKeys.length > 0) {
+            entity.foreignKeys.forEach((fk: any) => {
+                const targetTable = fk.referencesTable;// employee
+                const sourceTable = entity.data.label;// contact_no
+
+                if (!backRelations[targetTable]) {
+                    backRelations[targetTable] = [];
+                }
+
+                // Create a clean, pluralized field name (e.g., BRANCH -> branches)
+                let fieldName = sourceTable.toLowerCase();
+                if (fieldName.endsWith('ch') || fieldName.endsWith('s') || fieldName.endsWith('x')) {
+                    fieldName += 'es';
+                } else if (fieldName.endsWith('y')) {
+                    fieldName = fieldName.slice(0, -1) + 'ies';
+                } else {
+                    fieldName += 's';
+                }
+
+                // Disambiguate names if multiple Foreign Keys point to the exact same table
+                let finalFieldName = fieldName;
+                let counter = 1;
+                while (backRelations[targetTable].some(rel => rel.startsWith(`  ${finalFieldName} `))) {
+                    finalFieldName = `${fieldName}_${counter}`;
+                    counter++;
+                }
+
+                // Store the reverse array relation (e.g., '  branches BRANCH[]')
+                backRelations[targetTable].push(`  ${finalFieldName} ${sourceTable}[]`);
+            });
+        }
+    });
+
+    // Generate the Schema Models
     processedEntities.forEach((entity: any) => {
         schema += `model ${entity.data.label} {\n`;
 
@@ -24,7 +62,7 @@ export const generatePrisma = (compiledEntities: any[], edges: any[]) => {
         entity.attributes.forEach((rawAttr: any) => {
             const name = rawAttr.name || rawAttr.data?.label;
 
-            // 🌟 Robust Derived Attribute Logic
+            // Robust Derived Attribute Logic
             const rawType = String(rawAttr.attributeType || rawAttr.data?.attributeType || '').toLowerCase().replace(/[^a-z]/g, '');
             if (rawType === 'derived') {
                 schema += `  // Note: '${name}' is a derived attribute.\n`;
@@ -33,7 +71,7 @@ export const generatePrisma = (compiledEntities: any[], edges: any[]) => {
 
             const type = mapPrismaType(rawAttr.dataType || rawAttr.data?.dataType);
             const isPK = (entity.data.primaryKey === name || entity.data.primaryKey === rawAttr.id) && entity.data.primaryKey !== 'COMPOSITE';
-            
+
             schema += `  ${name} ${type}${isPK ? ' @id' : ''}\n`;
         });
 
@@ -41,13 +79,22 @@ export const generatePrisma = (compiledEntities: any[], edges: any[]) => {
         if (entity.foreignKeys && entity.foreignKeys.length > 0) {
             entity.foreignKeys.forEach((fk: any) => {
                 const type = mapPrismaType(fk.dataType);
-                schema += `  ${fk.name} ${type}\n`; 
+                schema += `  ${fk.name} ${type}\n`;
                 const relationObjectName = fk.referencesTable.toLowerCase();
                 schema += `  ${relationObjectName} ${fk.referencesTable} @relation(fields: [${fk.name}], references: [${fk.referencesCol}])\n`;
             });
         }
 
-        // 3. Composite Primary Keys
+        // 🌟 3. Inject Back-Relations
+        const tableBackRels = backRelations[entity.data.label];
+        if (tableBackRels && tableBackRels.length > 0) {
+            schema += `\n  // Back-relations\n`;
+            tableBackRels.forEach(rel => {
+                schema += `${rel}\n`;
+            });
+        }
+
+        // 4. Composite Primary Keys
         if (entity.compositePK && entity.compositePK.length > 0) {
             schema += `\n  @@id([${entity.compositePK.join(', ')}])\n`;
         }

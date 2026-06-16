@@ -19,7 +19,6 @@ const getPKDetails = (entity: any) => {
     const pkIdentifier = entity.data?.primaryKey;
     if (!pkIdentifier) return null;
 
-    // 🌟 BUILT-IN FALLBACKS: Check id, flat name, and nested label!
     const rawAttr = entity.attributes.find((attr: any) =>
         attr.id === pkIdentifier ||
         attr.name === pkIdentifier ||
@@ -103,39 +102,33 @@ export const preProcessRelationships = (compiledEntities: any[], edges: any[]) =
         });
     });
 
-    // 🌟 THE BULLETPROOF 1NF NORMALIZATION ENGINE
     const normalizedChildTables: any[] = [];
 
     processedEntities.forEach(entity => {
         const pk = getPKDetails(entity);
-        if (!pk) return; // Cannot generate 1NF without a parent PK
+        if (!pk) return; 
 
         const standardAttributes: any[] = [];
 
         entity.attributes.forEach((attr: any) => {
-            // 🌟 THE FIX: Strip hyphens, spaces, and handle both Flat (Hidden) and Nested (Visual) attributes!
-            // Turns "Multi-Valued", "multi_valued", or "multivalued" all into "multivalued"
             const rawType = String(attr.attributeType || attr.data?.attributeType || '').toLowerCase().replace(/[^a-z]/g, '');
 
             if (rawType === 'multivalued') {
-                // 1. Rip it out of the parent table
                 const attrName = attr.name || attr.data?.label || 'Value';
                 const parentName = entity.data?.label || 'Parent';
 
                 const childTableName = `${parentName}_${attrName}`;
                 const fkName = `${parentName.toLowerCase()}_${pk.name}`;
 
-                // 2. Automatically generate the 1NF Child Table
                 normalizedChildTables.push({
                     id: `child_${attr.id || Math.random()}`,
                     data: { label: childTableName, primaryKey: 'COMPOSITE' },
                     attributes: [
-                        // The value itself becomes a standard simple column in the new table
                         {
                             ...attr,
                             name: attrName,
-                            attributeType: 'simple', // Overwrite flat
-                            data: { ...(attr.data || {}), attributeType: 'simple', label: attrName } // Overwrite nested
+                            attributeType: 'simple', 
+                            data: { ...(attr.data || {}), attributeType: 'simple', label: attrName } 
                         }
                     ],
                     foreignKeys: [
@@ -147,14 +140,13 @@ export const preProcessRelationships = (compiledEntities: any[], edges: any[]) =
                             referencesCol: pk.name
                         }
                     ],
-                    compositePK: [fkName, attrName] // Primary Key is (Parent_ID, Value)
+                    compositePK: [fkName, attrName] 
                 });
             } else {
                 standardAttributes.push(attr);
             }
         });
 
-        // 3. Overwrite the parent entity to ONLY contain scalar values (1NF requirement)
         entity.attributes = standardAttributes;
     });
 
@@ -183,7 +175,6 @@ const buildTableSQL = (entity: any, dialect: SQLDialect) => {
     entity.attributes.forEach((rawAttr: any) => {
         const name = rawAttr.name || rawAttr.data?.label;
 
-        // 🌟 Robust Derived Attribute Logic
         const rawType = String(rawAttr.attributeType || rawAttr.data?.attributeType || '').toLowerCase().replace(/[^a-z]/g, '');
 
         if (rawType === 'derived') {
@@ -216,8 +207,15 @@ const buildTableSQL = (entity: any, dialect: SQLDialect) => {
         });
     }
 
+    // 🌟 THE FIX: Strictly enforcing Oracle CONSTRAINT syntax for Composite PKs
     if (entity.compositePK && entity.compositePK.length > 0) {
-        constraints.unshift(`    PRIMARY KEY (${entity.compositePK.join(', ')})`);
+        if (dialect === 'oracle') {
+            // Strip special characters to ensure a valid Oracle constraint name
+            const cleanName = entity.data.label.toLowerCase().replace(/[^a-z0-9_]/g, '');
+            constraints.unshift(`    CONSTRAINT pk_${cleanName} PRIMARY KEY (${entity.compositePK.join(', ')})`);
+        } else {
+            constraints.unshift(`    PRIMARY KEY (${entity.compositePK.join(', ')})`);
+        }
     }
 
     // Clean formatting for comments vs columns
