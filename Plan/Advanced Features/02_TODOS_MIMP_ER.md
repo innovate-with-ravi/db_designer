@@ -3,7 +3,7 @@
 * fix o/p scripts -->
 
 In propsPanel: 
-* add datatypes, sizes and more sql features to attributes
+* add more `datatypes, sizes and constraints` to attributes
 
 * verify metadata & overall strucure at last
 

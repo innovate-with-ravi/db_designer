@@ -1,18 +1,19 @@
-// lib/sqlGenerator.ts
-
 export type SQLDialect = 'mysql' | 'oracle';
 
 const mapDataType = (dataType: string, dialect: SQLDialect) => {
     const upperType = (dataType || 'VARCHAR').toUpperCase();
     if (dialect === 'mysql') return upperType;
 
+    // 🌟 THE FIX: Broadened Oracle Mappings
     if (dialect === 'oracle') {
         if (upperType === 'VARCHAR') return 'VARCHAR2';
         if (upperType === 'INT' || upperType === 'INTEGER') return 'NUMBER';
         if (upperType === 'DATETIME') return 'TIMESTAMP';
         if (upperType === 'TEXT') return 'CLOB';
+        if (upperType === 'BOOLEAN') return 'BOOLEAN';
+        if (upperType === 'DECIMAL') return 'NUMBER';
     }
-    return upperType;
+    return upperType;// DATE -> DATE
 };
 
 const getPKDetails = (entity: any) => {
@@ -20,9 +21,7 @@ const getPKDetails = (entity: any) => {
     if (!pkIdentifier) return null;
 
     const rawAttr = entity.attributes.find((attr: any) =>
-        attr.id === pkIdentifier ||
-        attr.name === pkIdentifier ||
-        attr.data?.label === pkIdentifier
+        attr.id === pkIdentifier || attr.name === pkIdentifier || attr.data?.label === pkIdentifier
     );
 
     if (!rawAttr) return null;
@@ -52,15 +51,13 @@ export const preProcessRelationships = (compiledEntities: any[], edges: any[]) =
 
         if (!sourcePK || !targetPK) return;
 
-        // SCENARIO 1: Many-to-Many (M:N)
         if ((sourceMax === 'M' || sourceMax === 'N') && (targetMax === 'M' || targetMax === 'N')) {
             const relName = edge.data?.label && edge.data.label !== 'REL' ? `_${edge.data.label}_` : '_';
             const junctionName = `${sourceNode.data.label}${relName}${targetNode.data.label}`;
-
             const fk1Name = `${sourceNode.data.label.toLowerCase()}_${sourcePK.name}`;
             const fk2Name = `${targetNode.data.label.toLowerCase()}_${targetPK.name}`;
 
-            const junctionTable = {
+            processedEntities.push({
                 id: `junction_${edge.id}`,
                 data: { label: junctionName.toUpperCase(), primaryKey: 'COMPOSITE' },
                 attributes: [],
@@ -69,23 +66,16 @@ export const preProcessRelationships = (compiledEntities: any[], edges: any[]) =
                     { name: fk2Name, dataType: targetPK.dataType, size: targetPK.size, referencesTable: targetNode.data.label, referencesCol: targetPK.name }
                 ],
                 compositePK: [fk1Name, fk2Name]
-            };
-            processedEntities.push(junctionTable);
-            return;
-        }
-
-        // SCENARIO 2: Unary (Self-Referencing 1:N or 1:1)
-        if (edge.source === edge.target) {
-            const relName = edge.data?.label && edge.data.label !== 'REL' ? edge.data.label.toLowerCase() : 'parent';
-            sourceNode.foreignKeys.push({
-                name: `${relName}_${sourcePK.name}`,
-                dataType: sourcePK.dataType, size: sourcePK.size,
-                referencesTable: sourceNode.data.label, referencesCol: sourcePK.name
             });
             return;
         }
 
-        // SCENARIO 3: Binary 1:N, N:1, or 1:1
+        if (edge.source === edge.target) {
+            const relName = edge.data?.label && edge.data.label !== 'REL' ? edge.data.label.toLowerCase() : 'parent';
+            sourceNode.foreignKeys.push({ name: `${relName}_${sourcePK.name}`, dataType: sourcePK.dataType, size: sourcePK.size, referencesTable: sourceNode.data.label, referencesCol: sourcePK.name });
+            return;
+        }
+
         let receivingNode, referencingNode, referencingPK;
         if (sourceMax === '1' && (targetMax === 'N' || targetMax === 'M')) {
             receivingNode = targetNode; referencingNode = sourceNode; referencingPK = sourcePK;
@@ -95,18 +85,14 @@ export const preProcessRelationships = (compiledEntities: any[], edges: any[]) =
             receivingNode = targetNode; referencingNode = sourceNode; referencingPK = sourcePK;
         }
 
-        receivingNode.foreignKeys.push({
-            name: `${referencingNode.data.label.toLowerCase()}_${referencingPK.name}`,
-            dataType: referencingPK.dataType, size: referencingPK.size,
-            referencesTable: referencingNode.data.label, referencesCol: referencingPK.name
-        });
+        receivingNode.foreignKeys.push({ name: `${referencingNode.data.label.toLowerCase()}_${referencingPK.name}`, dataType: referencingPK.dataType, size: referencingPK.size, referencesTable: referencingNode.data.label, referencesCol: referencingPK.name });
     });
 
     const normalizedChildTables: any[] = [];
 
     processedEntities.forEach(entity => {
         const pk = getPKDetails(entity);
-        if (!pk) return; 
+        if (!pk) return;
 
         const standardAttributes: any[] = [];
 
@@ -124,23 +110,10 @@ export const preProcessRelationships = (compiledEntities: any[], edges: any[]) =
                     id: `child_${attr.id || Math.random()}`,
                     data: { label: childTableName, primaryKey: 'COMPOSITE' },
                     attributes: [
-                        {
-                            ...attr,
-                            name: attrName,
-                            attributeType: 'simple', 
-                            data: { ...(attr.data || {}), attributeType: 'simple', label: attrName } 
-                        }
+                        { ...attr, name: attrName, attributeType: 'simple', data: { ...(attr.data || {}), attributeType: 'simple', label: attrName } }
                     ],
-                    foreignKeys: [
-                        {
-                            name: fkName,
-                            dataType: pk.dataType,
-                            size: pk.size,
-                            referencesTable: parentName,
-                            referencesCol: pk.name
-                        }
-                    ],
-                    compositePK: [fkName, attrName] 
+                    foreignKeys: [{ name: fkName, dataType: pk.dataType, size: pk.size, referencesTable: parentName, referencesCol: pk.name }],
+                    compositePK: [fkName, attrName]
                 });
             } else {
                 standardAttributes.push(attr);
@@ -158,11 +131,7 @@ export const generateSQL = (compiledEntities: any[], edges: any[], dialect: SQLD
     sqlScript += `-- Dialect: ${dialect === 'oracle' ? 'Oracle SQL' : 'MySQL'}\n\n`;
 
     const processedEntities = preProcessRelationships(compiledEntities, edges);
-
-    processedEntities.forEach((entity) => {
-        sqlScript += buildTableSQL(entity, dialect);
-    });
-
+    processedEntities.forEach((entity) => { sqlScript += buildTableSQL(entity, dialect); });
     return sqlScript;
 };
 
@@ -174,7 +143,6 @@ const buildTableSQL = (entity: any, dialect: SQLDialect) => {
 
     entity.attributes.forEach((rawAttr: any) => {
         const name = rawAttr.name || rawAttr.data?.label;
-
         const rawType = String(rawAttr.attributeType || rawAttr.data?.attributeType || '').toLowerCase().replace(/[^a-z]/g, '');
 
         if (rawType === 'derived') {
@@ -192,7 +160,11 @@ const buildTableSQL = (entity: any, dialect: SQLDialect) => {
         const isPK = entity.data.primaryKey === name || entity.data.primaryKey === rawAttr.id;
         const pkStr = (isPK && entity.data.primaryKey !== 'COMPOSITE') ? " PRIMARY KEY" : "";
 
-        columnDefinitions.push(`    ${name} ${mappedDataType}${sizeStr}${pkStr}`);
+        // 🌟 THE FIX: Inject Constraints
+        const isNotNull = (rawAttr.isNotNull || rawAttr.data?.isNotNull) && !isPK ? " NOT NULL" : "";
+        const isUnique = (rawAttr.isUnique || rawAttr.data?.isUnique) && !isPK ? " UNIQUE" : "";
+
+        columnDefinitions.push(`    ${name} ${mappedDataType}${sizeStr}${isNotNull}${isUnique}${pkStr}`);
     });
 
     if (entity.foreignKeys && entity.foreignKeys.length > 0) {
@@ -207,10 +179,8 @@ const buildTableSQL = (entity: any, dialect: SQLDialect) => {
         });
     }
 
-    // 🌟 THE FIX: Strictly enforcing Oracle CONSTRAINT syntax for Composite PKs
     if (entity.compositePK && entity.compositePK.length > 0) {
         if (dialect === 'oracle') {
-            // Strip special characters to ensure a valid Oracle constraint name
             const cleanName = entity.data.label.toLowerCase().replace(/[^a-z0-9_]/g, '');
             constraints.unshift(`    CONSTRAINT pk_${cleanName} PRIMARY KEY (${entity.compositePK.join(', ')})`);
         } else {
@@ -218,10 +188,7 @@ const buildTableSQL = (entity: any, dialect: SQLDialect) => {
         }
     }
 
-    // Clean formatting for comments vs columns
-    if (comments.length > 0) {
-        tableScript += comments.join('\n') + '\n';
-    }
+    if (comments.length > 0) tableScript += comments.join('\n') + '\n';
 
     const allTableLines = [...columnDefinitions, ...constraints];
     tableScript += allTableLines.join(',\n');

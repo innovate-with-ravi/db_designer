@@ -227,7 +227,6 @@ const useDiagramStore = create<DiagramState>((set, get) => ({
     const errors: ValidationError[] = [];
 
     const entities = nodes.filter((n) => n.type === 'entity');
-
     const isValidName = (name: string) => /^[a-zA-Z_][a-zA-Z0-9_]*$/.test(name);
 
     if (entities.length === 0) {
@@ -258,7 +257,6 @@ const useDiagramStore = create<DiagramState>((set, get) => ({
         errors.push({ message: `Table '${tableName}' is missing a Primary Key.`, nodeId: entity.id });
       }
 
-      // 🌟 THE FIX: Graph Traversal to find ALL connected attributes (including nested children)
       const visualAttrs: any[] = [];
       const visited = new Set<string>();
 
@@ -272,16 +270,17 @@ const useDiagramStore = create<DiagramState>((set, get) => ({
           const otherNodeId = edge.source === currentNodeId ? edge.target : edge.source;
           const otherNode = nodes.find(n => n.id === otherNodeId);
 
-          // 🛑 Make sure we don't accidentally crawl into another Entity!
           if (otherNode && otherNode.type === 'attribute' && !visited.has(otherNodeId)) {
             visualAttrs.push({
-              id: otherNode.id, // Keep ID so Focus & Fix works perfectly
+              id: otherNode.id,
               name: otherNode.data.label,
               dataType: otherNode.data.dataType,
               size: otherNode.data.size,
-              attributeType: otherNode.data.attributeType
+              attributeType: otherNode.data.attributeType,
+              isUnique: otherNode.data.isUnique,
+              isNotNull: otherNode.data.isNotNull
             });
-            traverse(otherNodeId); // Crawl deeper
+            traverse(otherNodeId);
           }
         });
       };
@@ -305,10 +304,11 @@ const useDiagramStore = create<DiagramState>((set, get) => ({
           }
 
           if (!isComposite) {
-            if (!attr.dataType || attr.dataType.trim() === '') {
-              // 🌟 Point the error exactly to the child attribute node ID!
+            const upperType = (attr.dataType || '').toUpperCase();
+            if (!upperType) {
               errors.push({ message: `Column '${attrName}' in table '${tableName}' is missing a Data Type.`, nodeId: attr.id || entity.id });
-            } else if ((attr.dataType === 'VARCHAR' || attr.dataType === 'CHAR') && (!attr.size || attr.size.trim() === '')) {
+            } else if ((upperType === 'VARCHAR' || upperType === 'CHAR') && (!attr.size || attr.size.trim() === '')) {
+              // 🌟 THE FIX: Only demand size for specific types
               errors.push({ message: `Column '${attrName}' in table '${tableName}' requires a Size (e.g., 255).`, nodeId: attr.id || entity.id });
             }
           }

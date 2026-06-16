@@ -47,15 +47,24 @@ const EntityNode = ({ data, id }: any) => {
 
         if ((!PK || PK.length == 0) && allAttrs.length > 0) return true;
 
+        // 🌟 THE FIX: Ignore BOTH 'composite' and 'derived' attributes!
         const hasMissingType = allAttrs.some(attr => {
-            const isComposite = String(attr.attributeType).toLowerCase().trim() === 'composite';
-            return !isComposite && (!attr.dataType || attr.dataType === '');
+            const rawType = String(attr.attributeType || attr.data?.attributeType || '').toLowerCase().trim();
+            const isIgnored = rawType === 'composite' || rawType === 'derived';
+
+            return !isIgnored && (!attr.dataType || String(attr.dataType).trim() === '');
         });
         if (hasMissingType) return true;
 
+        // 🌟 THE FIX: Only flag sizes for specific string data types!
         const hasMissingSize = allAttrs.some(attr => {
-            const isComposite = String(attr.attributeType).toLowerCase().trim() === 'composite';
-            return !isComposite && attr.dataType === 'VARCHAR' && (!attr.size || attr.size === '');
+            const rawType = String(attr.attributeType || attr.data?.attributeType || '').toLowerCase().trim();
+            const isIgnored = rawType === 'composite' || rawType === 'derived';
+
+            const dataType = String(attr.dataType || '').toUpperCase();
+            const needsSize = dataType === 'VARCHAR' || dataType === 'CHAR';
+
+            return !isIgnored && needsSize && (!attr.size || String(attr.size).trim() === '');
         });
         if (hasMissingSize) return true;
 

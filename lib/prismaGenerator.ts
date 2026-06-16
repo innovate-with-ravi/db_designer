@@ -4,9 +4,10 @@ import { preProcessRelationships } from './sqlGenerator';
 const mapPrismaType = (sqlType: string) => {
     const type = (sqlType || 'VARCHAR').toUpperCase();
     if (type.includes('INT')) return 'Int';
-    if (type.includes('BOOL') || type.includes('BIT')) return 'Boolean';
+    if (type.includes('BOOL')) return 'Boolean';
     if (type.includes('DATE') || type.includes('TIME')) return 'DateTime';
-    if (type.includes('FLOAT') || type.includes('DECIMAL') || type.includes('DOUBLE')) return 'Float';
+    if (type.includes('FLOAT') || type.includes('DOUBLE')) return 'Float';
+    if (type.includes('DECIMAL')) return 'Decimal';
     return 'String';
 };
 
@@ -16,21 +17,16 @@ export const generatePrisma = (compiledEntities: any[], edges: any[]) => {
     schema += `datasource db {\n  provider = "postgresql"\n  url      = env("DATABASE_URL")\n}\n\n`;
 
     const processedEntities = preProcessRelationships(compiledEntities, edges);
-
-    // 🌟 THE FIX: Pre-calculate all Prisma Back-Relations
     const backRelations: Record<string, string[]> = {};
 
     processedEntities.forEach((entity: any) => {
         if (entity.foreignKeys && entity.foreignKeys.length > 0) {
             entity.foreignKeys.forEach((fk: any) => {
-                const targetTable = fk.referencesTable;// employee
-                const sourceTable = entity.data.label;// contact_no
+                const targetTable = fk.referencesTable;
+                const sourceTable = entity.data.label;
 
-                if (!backRelations[targetTable]) {
-                    backRelations[targetTable] = [];
-                }
+                if (!backRelations[targetTable]) backRelations[targetTable] = [];
 
-                // Create a clean, pluralized field name (e.g., BRANCH -> branches)
                 let fieldName = sourceTable.toLowerCase();
                 if (fieldName.endsWith('ch') || fieldName.endsWith('s') || fieldName.endsWith('x')) {
                     fieldName += 'es';
@@ -40,7 +36,6 @@ export const generatePrisma = (compiledEntities: any[], edges: any[]) => {
                     fieldName += 's';
                 }
 
-                // Disambiguate names if multiple Foreign Keys point to the exact same table
                 let finalFieldName = fieldName;
                 let counter = 1;
                 while (backRelations[targetTable].some(rel => rel.startsWith(`  ${finalFieldName} `))) {
@@ -48,21 +43,17 @@ export const generatePrisma = (compiledEntities: any[], edges: any[]) => {
                     counter++;
                 }
 
-                // Store the reverse array relation (e.g., '  branches BRANCH[]')
                 backRelations[targetTable].push(`  ${finalFieldName} ${sourceTable}[]`);
             });
         }
     });
 
-    // Generate the Schema Models
     processedEntities.forEach((entity: any) => {
         schema += `model ${entity.data.label} {\n`;
 
-        // 1. Standard Attributes
         entity.attributes.forEach((rawAttr: any) => {
             const name = rawAttr.name || rawAttr.data?.label;
 
-            // Robust Derived Attribute Logic
             const rawType = String(rawAttr.attributeType || rawAttr.data?.attributeType || '').toLowerCase().replace(/[^a-z]/g, '');
             if (rawType === 'derived') {
                 schema += `  // Note: '${name}' is a derived attribute.\n`;
@@ -70,12 +61,22 @@ export const generatePrisma = (compiledEntities: any[], edges: any[]) => {
             }
 
             const type = mapPrismaType(rawAttr.dataType || rawAttr.data?.dataType);
+
             const isPK = (entity.data.primaryKey === name || entity.data.primaryKey === rawAttr.id) && entity.data.primaryKey !== 'COMPOSITE';
 
-            schema += `  ${name} ${type}${isPK ? ' @id' : ''}\n`;
+            // Ensure Composite PK components are NEVER marked optional
+            const isPartofCompositePK = entity.compositePK && entity.compositePK.includes(name);
+            const isNotNull = rawAttr.isNotNull || rawAttr.data?.isNotNull;
+
+            // If it's a primary key (standard or composite) or explicitly marked Not Null, it cannot be optional.
+            const isOptional = (!isNotNull && !isPK && !isPartofCompositePK) ? "?" : "";
+
+            // Composite PK components don't need individual @unique tags
+            const isUnique = (rawAttr.isUnique || rawAttr.data?.isUnique) && !isPK && !isPartofCompositePK ? " @unique" : "";
+
+            schema += `  ${name} ${type}${isOptional}${isPK ? ' @id' : ''}${isUnique}\n`;
         });
 
-        // 2. Foreign Keys & Relations
         if (entity.foreignKeys && entity.foreignKeys.length > 0) {
             entity.foreignKeys.forEach((fk: any) => {
                 const type = mapPrismaType(fk.dataType);
@@ -85,16 +86,12 @@ export const generatePrisma = (compiledEntities: any[], edges: any[]) => {
             });
         }
 
-        // 🌟 3. Inject Back-Relations
         const tableBackRels = backRelations[entity.data.label];
         if (tableBackRels && tableBackRels.length > 0) {
             schema += `\n  // Back-relations\n`;
-            tableBackRels.forEach(rel => {
-                schema += `${rel}\n`;
-            });
+            tableBackRels.forEach(rel => { schema += `${rel}\n`; });
         }
 
-        // 4. Composite Primary Keys
         if (entity.compositePK && entity.compositePK.length > 0) {
             schema += `\n  @@id([${entity.compositePK.join(', ')}])\n`;
         }
