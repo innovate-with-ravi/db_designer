@@ -9,10 +9,17 @@
                 ├── route.ts
     └── 📁components
         └── 📁edges
+            ├── oldRelnpEdge.tsx
             ├── RelationshipEdge.tsx
         └── 📁Editor
             ├── EditorHeader.tsx
             ├── EditorPage.tsx
+            ├── ExportModal.tsx
+            ├── LeftSidebar.tsx
+            ├── PropertiesPanel.tsx
+            ├── SqlCodeBlock.tsx
+            ├── SqlOutputModal.tsx
+            ├── ValidationConsole.tsx
         └── 📁landing
             ├── CursorFollower.tsx
             ├── FeatureBento.tsx
@@ -24,11 +31,7 @@
             ├── AttributeNode.tsx
             ├── EntityNode.tsx
         └── 📁ui
-            ├── LeftSidebar.tsx
-            ├── PropertiesPanel.tsx
-            ├── SqlCodeBlock.tsx
-            ├── SqlOutputModal.tsx
-            ├── ValidationConsole.tsx
+            ├── DeleteProjectButton.tsx
         ├── ThemeProvider.tsx
         ├── ThemeToggle.tsx
     └── 📁dashboard
