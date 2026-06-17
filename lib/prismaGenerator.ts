@@ -4,11 +4,19 @@ import { preProcessRelationships } from './sqlGenerator';
 const mapPrismaType = (sqlType: string) => {
     const type = (sqlType || 'VARCHAR').toUpperCase();
     if (type.includes('INT')) return 'Int';
-    if (type.includes('BOOL')) return 'Boolean';
+    if (type.includes('BOOL') || type.includes('BIT')) return 'Boolean';
     if (type.includes('DATE') || type.includes('TIME')) return 'DateTime';
-    if (type.includes('FLOAT') || type.includes('DOUBLE')) return 'Float';
-    if (type.includes('DECIMAL')) return 'Decimal';
+    if (type.includes('FLOAT') || type.includes('DECIMAL') || type.includes('DOUBLE')) return 'Float';
     return 'String';
+};
+
+// Grammar helper for clean Prisma arrays (e.g., COURSE -> courses)
+const pluralize = (word: string) => {
+    if (!word) return 'items';
+    const lower = word.toLowerCase();
+    if (lower.endsWith('ch') || lower.endsWith('s') || lower.endsWith('x') || lower.endsWith('sh')) return lower + 'es';
+    if (lower.endsWith('y') && !/[aeiou]y$/.test(lower)) return lower.slice(0, -1) + 'ies';
+    return lower + 's';
 };
 
 export const generatePrisma = (compiledEntities: any[], edges: any[]) => {
@@ -17,9 +25,69 @@ export const generatePrisma = (compiledEntities: any[], edges: any[]) => {
     schema += `datasource db {\n  provider = "postgresql"\n  url      = env("DATABASE_URL")\n}\n\n`;
 
     const processedEntities = preProcessRelationships(compiledEntities, edges);
-    const backRelations: Record<string, string[]> = {};
 
-    processedEntities.forEach((entity: any) => {
+    const backRelations: Record<string, string[]> = {};
+    const implicitManyToMany: Record<string, string[]> = {};
+    const usedRelationTags = new Set<string>(); // Tracks global @relation("...") names
+
+    // 🌟 1. Intercept SQL Junction Tables & Convert to Prisma Implicit M:N
+    const finalEntities = processedEntities.filter((entity: any) => {
+        if (String(entity.id).startsWith('junction_')) {
+            const fk1 = entity.foreignKeys[0];
+            const fk2 = entity.foreignKeys[1];
+
+            const tableA = fk1.referencesTable;
+            const tableB = fk2.referencesTable;
+
+            if (!implicitManyToMany[tableA]) implicitManyToMany[tableA] = [];
+            if (!implicitManyToMany[tableB]) implicitManyToMany[tableB] = [];
+
+            // Grab the original edge to extract the exact user-defined label (e.g., "PLAYS")
+            const edgeId = String(entity.id).replace('junction_', '');
+            const originalEdge = edges.find(e => String(e.id) === edgeId);
+
+            let edgeLabel = originalEdge?.data?.label && originalEdge.data.label !== 'REL'
+                ? String(originalEdge.data.label).replace(/[^a-zA-Z0-9_]/g, '')
+                : `${tableA}_${tableB}`;
+
+            // Ensure the relation string is globally unique without looking ugly
+            let cleanRelName = edgeLabel;
+            let mCounter = 1;
+            while (usedRelationTags.has(cleanRelName)) {
+                cleanRelName = `${edgeLabel}_${mCounter}`;
+                mCounter++;
+            }
+            usedRelationTags.add(cleanRelName);
+
+            // Clean array variable names
+            let arrA = pluralize(tableB);
+            let arrB = pluralize(tableA);
+
+            // Avoid variable name collisions if multiple M:N exist
+            let cA = 1, cB = 1;
+            const finalArrA = arrA; const finalArrB = arrB;
+            while (implicitManyToMany[tableA].some(r => r.includes(` ${arrA} `))) { arrA = `${finalArrA}_${cA++}`; }
+            while (implicitManyToMany[tableB].some(r => r.includes(` ${arrB} `))) { arrB = `${finalArrB}_${cB++}`; }
+
+            implicitManyToMany[tableA].push(`  ${arrA} ${tableB}[] @relation("${cleanRelName}")`);
+            implicitManyToMany[tableB].push(`  ${arrB} ${tableA}[] @relation("${cleanRelName}")`);
+
+            return false; // Safely drop the physical junction table
+        }
+        return true;
+    });
+
+    // 🌟 2. Collision Detection: Track if a table has multiple FKs pointing to the SAME target table
+    const relCount: Record<string, number> = {};
+    finalEntities.forEach((e: any) => {
+        e.foreignKeys?.forEach((fk: any) => {
+            const key = `${e.data.label}_${fk.referencesTable}`;
+            relCount[key] = (relCount[key] || 0) + 1;
+        });
+    });
+
+    // 🌟 3. Pre-process standard 1:N relations
+    finalEntities.forEach((entity: any) => {
         if (entity.foreignKeys && entity.foreignKeys.length > 0) {
             entity.foreignKeys.forEach((fk: any) => {
                 const targetTable = fk.referencesTable;
@@ -27,69 +95,100 @@ export const generatePrisma = (compiledEntities: any[], edges: any[]) => {
 
                 if (!backRelations[targetTable]) backRelations[targetTable] = [];
 
-                let fieldName = sourceTable.toLowerCase();
-                if (fieldName.endsWith('ch') || fieldName.endsWith('s') || fieldName.endsWith('x')) {
-                    fieldName += 'es';
-                } else if (fieldName.endsWith('y')) {
-                    fieldName = fieldName.slice(0, -1) + 'ies';
+                const isAmbiguous = relCount[`${sourceTable}_${targetTable}`] > 1;
+                let arrayFieldName = pluralize(sourceTable);
+                let relString = null;
+
+                // If multiple lines exist between the SAME tables, we prefix the array with the FK name!
+                if (isAmbiguous) {
+                    const cleanPrefix = fk.name.replace(/_id$/i, '').replace(new RegExp(`_${fk.referencesCol}$`, 'i'), '').toLowerCase();
+                    arrayFieldName = `${cleanPrefix}_${arrayFieldName}`;
+                    relString = `"${sourceTable}_${fk.name}"`; // Guaranteed unique
+                    fk.relationString = relString;
+                    fk.objectName = cleanPrefix;
                 } else {
-                    fieldName += 's';
+                    fk.relationString = null; // OMIT THE STRING ENTIRELY!
+                    fk.objectName = targetTable.toLowerCase();
                 }
 
-                let finalFieldName = fieldName;
+                // Final safety check against physical columns
+                let finalFieldName = arrayFieldName;
                 let counter = 1;
-                while (backRelations[targetTable].some(rel => rel.startsWith(`  ${finalFieldName} `))) {
-                    finalFieldName = `${fieldName}_${counter}`;
+                const targetEntityDef = finalEntities.find(e => e.data.label === targetTable);
+
+                while (
+                    targetEntityDef?.attributes.some((a: any) => (a.name || a.data?.label) === finalFieldName) ||
+                    backRelations[targetTable].some(rel => rel.startsWith(`  ${finalFieldName} `)) ||
+                    (implicitManyToMany[targetTable] && implicitManyToMany[targetTable].some(rel => rel.startsWith(`  ${finalFieldName} `)))
+                ) {
+                    finalFieldName = `${arrayFieldName}_${counter}`;
                     counter++;
                 }
 
-                backRelations[targetTable].push(`  ${finalFieldName} ${sourceTable}[]`);
+                const relTag = relString ? ` @relation(${relString})` : "";
+                backRelations[targetTable].push(`  ${finalFieldName} ${sourceTable}[]${relTag}`);
             });
         }
     });
 
-    processedEntities.forEach((entity: any) => {
+    // 4. Generate the actual Prisma models
+    finalEntities.forEach((entity: any) => {
         schema += `model ${entity.data.label} {\n`;
 
+        // Attributes
         entity.attributes.forEach((rawAttr: any) => {
             const name = rawAttr.name || rawAttr.data?.label;
-
             const rawType = String(rawAttr.attributeType || rawAttr.data?.attributeType || '').toLowerCase().replace(/[^a-z]/g, '');
+
             if (rawType === 'derived') {
                 schema += `  // Note: '${name}' is a derived attribute.\n`;
                 return;
             }
 
             const type = mapPrismaType(rawAttr.dataType || rawAttr.data?.dataType);
-
             const isPK = (entity.data.primaryKey === name || entity.data.primaryKey === rawAttr.id) && entity.data.primaryKey !== 'COMPOSITE';
-
-            // Ensure Composite PK components are NEVER marked optional
             const isPartofCompositePK = entity.compositePK && entity.compositePK.includes(name);
             const isNotNull = rawAttr.isNotNull || rawAttr.data?.isNotNull;
 
-            // If it's a primary key (standard or composite) or explicitly marked Not Null, it cannot be optional.
             const isOptional = (!isNotNull && !isPK && !isPartofCompositePK) ? "?" : "";
-
-            // Composite PK components don't need individual @unique tags
             const isUnique = (rawAttr.isUnique || rawAttr.data?.isUnique) && !isPK && !isPartofCompositePK ? " @unique" : "";
 
             schema += `  ${name} ${type}${isOptional}${isPK ? ' @id' : ''}${isUnique}\n`;
         });
 
+        // Foreign Keys (The scalar side of 1:N)
+        const usedObjNames = new Set<string>();
         if (entity.foreignKeys && entity.foreignKeys.length > 0) {
             entity.foreignKeys.forEach((fk: any) => {
                 const type = mapPrismaType(fk.dataType);
                 schema += `  ${fk.name} ${type}\n`;
-                const relationObjectName = fk.referencesTable.toLowerCase();
-                schema += `  ${relationObjectName} ${fk.referencesTable} @relation(fields: [${fk.name}], references: [${fk.referencesCol}])\n`;
+
+                let finalObjName = fk.objectName;
+                let counter = 1;
+
+                while (
+                    entity.attributes.some((a: any) => (a.name || a.data?.label) === finalObjName) ||
+                    usedObjNames.has(finalObjName) ||
+                    finalObjName === fk.name
+                ) {
+                    finalObjName = `${fk.objectName}_${counter}`;
+                    counter++;
+                }
+                usedObjNames.add(finalObjName);
+
+                const relTag = fk.relationString ? `${fk.relationString}, ` : "";
+                schema += `  ${finalObjName} ${fk.referencesTable} @relation(${relTag}fields: [${fk.name}], references: [${fk.referencesCol}])\n`;
             });
         }
 
+        // Back Relations & Implicit M:N Arrays
         const tableBackRels = backRelations[entity.data.label];
-        if (tableBackRels && tableBackRels.length > 0) {
-            schema += `\n  // Back-relations\n`;
-            tableBackRels.forEach(rel => { schema += `${rel}\n`; });
+        const tableImplicitM2M = implicitManyToMany[entity.data.label];
+
+        if ((tableBackRels && tableBackRels.length > 0) || (tableImplicitM2M && tableImplicitM2M.length > 0)) {
+            schema += `\n  // Relations\n`;
+            if (tableBackRels) tableBackRels.forEach(rel => { schema += `${rel}\n`; });
+            if (tableImplicitM2M) tableImplicitM2M.forEach(rel => { schema += `${rel}\n`; });
         }
 
         if (entity.compositePK && entity.compositePK.length > 0) {

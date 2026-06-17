@@ -20,7 +20,6 @@ export default function ExportModal({ isOpen, onClose }: { isOpen: boolean, onCl
     const [rawCode, setRawCode] = useState<string>("");
     const [isGenerating, setIsGenerating] = useState(false);
 
-    // 🌟 The Fix: The Modal manages its own recompilation when the dialect changes
     useEffect(() => {
         if (!isOpen) return;
 
@@ -89,7 +88,7 @@ export default function ExportModal({ isOpen, onClose }: { isOpen: boolean, onCl
 
                         <div className="h-6 w-px bg-border hidden sm:block" />
 
-                        {/* 🌟 UI Upgrade: Prominent, Eye-Catchy Close Button */}
+                        {/* 🌟 Prominent Close Button */}
                         <button
                             onClick={onClose}
                             className="flex items-center justify-center w-9 h-9 rounded-full bg-red-500/10 text-red-500 hover:bg-red-500 hover:text-white transition-all transform hover:scale-105 active:scale-95"
@@ -110,14 +109,12 @@ export default function ExportModal({ isOpen, onClose }: { isOpen: boolean, onCl
                             </div>
                         </div>
                     ) : (
-                        <>
-                            <div className="text-sm sm:text-base font-mono">
-                                <SqlCodeBlock html={htmlCode} />
-                            </div>
-                        </>
+                        /* 🌟 THE FIX: Added [&_pre]:overflow-x-auto, max-w-full, and padding to force Shiki to scroll properly */
+                        <div className="text-sm sm:text-base font-mono w-full max-w-full overflow-x-hidden [&_pre]:overflow-x-auto [&_pre]:max-w-full [&_pre]:pb-6 [&_pre]:pt-2 [&_code]:block [&_code]:min-w-fit">
+                            <SqlCodeBlock html={htmlCode} />
+                        </div>
                     )}
 
-                    {/* 🌟 UI Upgrade: Floated Copy Button */}
                     <button
                         onClick={handleCopy}
                         disabled={isGenerating}

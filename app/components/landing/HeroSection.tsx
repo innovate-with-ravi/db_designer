@@ -8,7 +8,7 @@ export default function HeroSection({ isAuthenticated, loginAction }: { isAuthen
     return (
         <section className="relative max-w-7xl mx-auto flex flex-col items-center text-center">
 
-            {/* Background Glow Effect */}
+            {/* Background Glow Effect - We keep this specific color because it's a brand accent, but lower opacity */}
             <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-full max-w-[600px] h-[300px] md:h-[400px] bg-blue-600/10 blur-[100px] md:blur-[120px] rounded-full pointer-events-none overflow-hidden" />
 
             {/* 1. The Badge */}
@@ -72,12 +72,18 @@ export default function HeroSection({ isAuthenticated, loginAction }: { isAuthen
                 className="mt-20 w-full max-w-5xl rounded-xl p-2 bg-surface border border-surface-border backdrop-blur-sm relative"
             >
                 <div className="relative aspect-video rounded-lg overflow-hidden bg-background border border-surface-border shadow-2xl flex items-center justify-center">
+                    {/* The cool background gradient (shows while loading) */}
                     <div className="absolute inset-0 bg-gradient-to-tr from-brand-blue/10 to-brand-emerald/10" />
 
-                    <div className="text-muted-foreground font-mono flex items-center gap-2">
-                        <Database size={24} />
-                        [ Embed 4K Product Demo Video Here ]
-                    </div>
+                    <iframe
+                        className="absolute inset-0 w-full h-full z-10"
+                        src="https://www.youtube.com/embed/knUu1S7z_y0?si=CuJyresi4hcDNYwa&autoplay=1&mute=1"
+                        title="YouTube video player"
+                        frameBorder="0"
+                        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+                        referrerPolicy="strict-origin-when-cross-origin"
+                        allowFullScreen
+                    ></iframe>
                 </div>
             </motion.div>
 
