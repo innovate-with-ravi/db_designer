@@ -215,13 +215,16 @@ export default function RelationshipEdge({ id, source, target, sourceX, sourceY,
 
                         {/* 🌟 Themed Relationship Diamond */}
                         <div onDoubleClick={(e) => { e.stopPropagation(); setIsEditing(true); }} onBlur={() => setIsEditing(false)}
-                            className="w-16 h-16 bg-brand-blue/10 border-2 border-brand-blue/50 rotate-45 mx-1 flex justify-center items-center shadow-sm cursor-text hover:bg-brand-blue/20 transition-colors pointer-events-auto rounded-2xl backdrop-blur-sm"
+                            className="w-18 h-18 bg-brand-blue/10 border-2 border-brand-blue/50 rotate-45 mx-1 flex justify-center items-center shadow-sm cursor-text hover:bg-brand-blue/20 transition-colors pointer-events-auto rounded-2xl backdrop-blur-sm"
                         >
-                            <div className="-rotate-45 flex items-center justify-center w-full">
+                            <div className="-rotate-45 flex items-center justify-center w-full h-full px-1 overflow-hidden">
                                 {!isEditing ? (
-                                    <p className="font-bold text-foreground text-center leading-tight line-clamp-1">{label || 'REL'}</p>
+                                    <p className="w-full text-sm font-bold text-foreground text-center leading-tight line-clamp-2 wrap-break-word hyphens-auto overflow-hidden whitespace-normal">
+                                        {label || 'REL'}
+                                    </p>
                                 ) : (
-                                    <input className="w-12 text-[10px] font-bold text-center outline-none bg-transparent text-foreground" type="text" autoFocus
+                                    <input className="w-full h-full text-[10px] font-bold text-center outline-none bg-transparent text-foreground"
+                                        type="text" autoFocus
                                         value={label as string || 'REL'}
                                         onChange={(e) => { setLabel(e.target.value.toLocaleUpperCase()) }}
                                         onBlur={(e) => updateEdgeData(id, { label })}

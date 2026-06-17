@@ -38,8 +38,8 @@ export default function Footer() {
                 <div>
                     <h4 className="font-bold mb-4 text-foreground">Resources</h4>
                     <ul className="space-y-2 text-sm text-muted-foreground">
-                        <li><Link href="#" className="hover:text-brand-blue transition-colors">Database Design Guide</Link></li>
-                        <li><Link href="#" className="hover:text-brand-blue transition-colors">Prisma Integration</Link></li>
+                        <li><Link href="/docs#basics" className="hover:text-brand-blue transition-colors">Database Design Guide</Link></li>
+                        <li><Link href="/docs#export" className="hover:text-brand-blue transition-colors">Prisma Integration</Link></li>
                         <li><Link href="#" className="hover:text-brand-blue transition-colors">Changelog</Link></li>
                     </ul>
                 </div>

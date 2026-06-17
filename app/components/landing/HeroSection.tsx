@@ -8,7 +8,7 @@ export default function HeroSection({ isAuthenticated, loginAction }: { isAuthen
     return (
         <section className="relative max-w-7xl mx-auto flex flex-col items-center text-center">
 
-            {/* Background Glow Effect - We keep this specific color because it's a brand accent, but lower opacity */}
+            {/* Background Glow Effect */}
             <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-full max-w-[600px] h-[300px] md:h-[400px] bg-blue-600/10 blur-[100px] md:blur-[120px] rounded-full pointer-events-none overflow-hidden" />
 
             {/* 1. The Badge */}
@@ -36,7 +36,7 @@ export default function HeroSection({ isAuthenticated, loginAction }: { isAuthen
                     </span>
                 </h1>
                 <p className="text-lg md:text-xl text-muted-foreground mb-10 max-w-2xl mx-auto">
-                    The ultimate visual entity-relationship builder. Draw your schema, auto-resolve cardinalities, and generate production-ready MySQL instantly.
+                    The ultimate visual entity-relationship builder. Draw your schema, auto-resolve cardinalities, and instantly generate production-ready MySQL, Oracle SQL, and Prisma schemas.
                 </p>
             </motion.div>
 

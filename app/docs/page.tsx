@@ -32,7 +32,7 @@ export default function DocsPage() {
                 Clicking on any Entity on the canvas opens the Properties Panel on the right. This is where you configure the underlying data structure.
             </p>
             <ul>
-                <li><strong>Composite Attributes:</strong> If an attribute has sub-components (like a <code>name</code> split into <code>first</code> and <code>last</code>), set its type to Composite. Drag child attributes onto it, and the panel will organize them into a clean, collapsible folder structure. The compiler will automatically flatten these into physical columns (e.g., <code>name_first</code>, <code>name_last</code>).</li>
+                <li><strong>Composite Attributes:</strong> You can create a composite attribute with sub-components (like a <code>name</code> split into <code>first</code> and <code>last</code>), by selecting a composite attribute from left sidebar and attaching to an entity. Drag child attributes onto it, and the panel will organize them into a clean, collapsible folder structure. The compiler will automatically flatten these into physical columns (e.g., <code>name_first</code>, <code>name_last</code>).</li>
                 <li><strong>Hidden Attributes:</strong> Don't want to clutter your canvas with timestamps or internal IDs? Add them as "Hidden Attributes" in the panel. They will compile normally without taking up visual space.</li>
                 <li><strong>Data Types & Constraints:</strong> Assign <code>INT</code>, <code>VARCHAR</code>, <code>BOOLEAN</code>, etc. You can also toggle strict database constraints like <code>NOT NULL</code> and <code>UNIQUE</code>.</li>
             </ul>
