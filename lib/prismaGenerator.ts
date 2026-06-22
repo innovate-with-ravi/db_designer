@@ -10,7 +10,6 @@ const mapPrismaType = (sqlType: string) => {
     return 'String';
 };
 
-// Grammar helper for clean Prisma arrays (e.g., COURSE -> courses)
 const pluralize = (word: string) => {
     if (!word) return 'items';
     const lower = word.toLowerCase();
@@ -28,42 +27,34 @@ export const generatePrisma = (compiledEntities: any[], edges: any[]) => {
 
     const backRelations: Record<string, string[]> = {};
     const implicitManyToMany: Record<string, string[]> = {};
-    const usedRelationTags = new Set<string>(); // Tracks global @relation("...") names
+    const globalUsedRelationTags = new Set<string>();
 
-    // 🌟 1. Intercept SQL Junction Tables & Convert to Prisma Implicit M:N
     const finalEntities = processedEntities.filter((entity: any) => {
         if (String(entity.id).startsWith('junction_')) {
             const fk1 = entity.foreignKeys[0];
             const fk2 = entity.foreignKeys[1];
-
             const tableA = fk1.referencesTable;
             const tableB = fk2.referencesTable;
 
             if (!implicitManyToMany[tableA]) implicitManyToMany[tableA] = [];
             if (!implicitManyToMany[tableB]) implicitManyToMany[tableB] = [];
+            /*
+              instead of message[] -> sends_message
+              instead of user[] -> sends_user
+              
+              i.e. ${relationName}_{entityName(other entity name connected to this model using relationName relationship)}
+            */
 
-            // Grab the original edge to extract the exact user-defined label (e.g., "PLAYS")
-            const edgeId = String(entity.id).replace('junction_', '');
-            const originalEdge = edges.find(e => String(e.id) === edgeId);
-
-            let edgeLabel = originalEdge?.data?.label && originalEdge.data.label !== 'REL'
-                ? String(originalEdge.data.label).replace(/[^a-zA-Z0-9_]/g, '')
-                : `${tableA}_${tableB}`;
-
-            // Ensure the relation string is globally unique without looking ugly
-            let cleanRelName = edgeLabel;
+            let cleanRelName = entity.data.label;
             let mCounter = 1;
-            while (usedRelationTags.has(cleanRelName)) {
-                cleanRelName = `${edgeLabel}_${mCounter}`;
-                mCounter++;
+            while (globalUsedRelationTags.has(cleanRelName)) {
+                cleanRelName = `${entity.data.label}_${mCounter++}`;
             }
-            usedRelationTags.add(cleanRelName);
+            globalUsedRelationTags.add(cleanRelName);
 
-            // Clean array variable names
             let arrA = pluralize(tableB);
             let arrB = pluralize(tableA);
 
-            // Avoid variable name collisions if multiple M:N exist
             let cA = 1, cB = 1;
             const finalArrA = arrA; const finalArrB = arrB;
             while (implicitManyToMany[tableA].some(r => r.includes(` ${arrA} `))) { arrA = `${finalArrA}_${cA++}`; }
@@ -72,12 +63,11 @@ export const generatePrisma = (compiledEntities: any[], edges: any[]) => {
             implicitManyToMany[tableA].push(`  ${arrA} ${tableB}[] @relation("${cleanRelName}")`);
             implicitManyToMany[tableB].push(`  ${arrB} ${tableA}[] @relation("${cleanRelName}")`);
 
-            return false; // Safely drop the physical junction table
+            return false;
         }
         return true;
     });
 
-    // 🌟 2. Collision Detection: Track if a table has multiple FKs pointing to the SAME target table
     const relCount: Record<string, number> = {};
     finalEntities.forEach((e: any) => {
         e.foreignKeys?.forEach((fk: any) => {
@@ -86,7 +76,6 @@ export const generatePrisma = (compiledEntities: any[], edges: any[]) => {
         });
     });
 
-    // 🌟 3. Pre-process standard 1:N relations
     finalEntities.forEach((entity: any) => {
         if (entity.foreignKeys && entity.foreignKeys.length > 0) {
             entity.foreignKeys.forEach((fk: any) => {
@@ -96,46 +85,42 @@ export const generatePrisma = (compiledEntities: any[], edges: any[]) => {
                 if (!backRelations[targetTable]) backRelations[targetTable] = [];
 
                 const isAmbiguous = relCount[`${sourceTable}_${targetTable}`] > 1;
-                let arrayFieldName = pluralize(sourceTable);
-                let relString = null;
 
-                // If multiple lines exist between the SAME tables, we prefix the array with the FK name!
+                // 🌟 SEMANTIC ARRAY NAMING
+                let prefix = fk.name.replace(new RegExp(`_${fk.referencesCol}$`, 'i'), '').toLowerCase();
+                let arrayName = pluralize(sourceTable);
+
+                // If it's a collision, inject the semantic prefix into the back-relation array! (e.g. sends_messages)
+                if (isAmbiguous && prefix !== targetTable.toLowerCase()) {
+                    arrayName = `${prefix}_${arrayName}`;
+                }
+
+                let finalArrName = arrayName;
+                let aCounter = 1;
+                while (backRelations[targetTable].some(rel => rel.includes(` ${finalArrName} `))) {
+                    finalArrName = `${arrayName}_${aCounter++}`;
+                }
+
                 if (isAmbiguous) {
-                    const cleanPrefix = fk.name.replace(/_id$/i, '').replace(new RegExp(`_${fk.referencesCol}$`, 'i'), '').toLowerCase();
-                    arrayFieldName = `${cleanPrefix}_${arrayFieldName}`;
-                    relString = `"${sourceTable}_${fk.name}"`; // Guaranteed unique
-                    fk.relationString = relString;
-                    fk.objectName = cleanPrefix;
+                    let relString = `${fk.name}`;
+                    let rCounter = 1;
+                    while (globalUsedRelationTags.has(relString)) { relString = `${fk.name}_${rCounter++}`; }
+                    globalUsedRelationTags.add(relString);
+                    fk.relationString = `"${relString}"`;
                 } else {
-                    fk.relationString = null; // OMIT THE STRING ENTIRELY!
-                    fk.objectName = targetTable.toLowerCase();
+                    fk.relationString = null;
                 }
 
-                // Final safety check against physical columns
-                let finalFieldName = arrayFieldName;
-                let counter = 1;
-                const targetEntityDef = finalEntities.find(e => e.data.label === targetTable);
-
-                while (
-                    targetEntityDef?.attributes.some((a: any) => (a.name || a.data?.label) === finalFieldName) ||
-                    backRelations[targetTable].some(rel => rel.startsWith(`  ${finalFieldName} `)) ||
-                    (implicitManyToMany[targetTable] && implicitManyToMany[targetTable].some(rel => rel.startsWith(`  ${finalFieldName} `)))
-                ) {
-                    finalFieldName = `${arrayFieldName}_${counter}`;
-                    counter++;
-                }
-
-                const relTag = relString ? ` @relation(${relString})` : "";
-                backRelations[targetTable].push(`  ${finalFieldName} ${sourceTable}[]${relTag}`);
+                const relTag = fk.relationString ? ` @relation(${fk.relationString})` : "";
+                backRelations[targetTable].push(`  ${finalArrName} ${sourceTable}[]${relTag}`);
+                fk.uniqueObjectName = prefix; // Save the object prefix for model generation below
             });
         }
     });
 
-    // 4. Generate the actual Prisma models
     finalEntities.forEach((entity: any) => {
         schema += `model ${entity.data.label} {\n`;
 
-        // Attributes
         entity.attributes.forEach((rawAttr: any) => {
             const name = rawAttr.name || rawAttr.data?.label;
             const rawType = String(rawAttr.attributeType || rawAttr.data?.attributeType || '').toLowerCase().replace(/[^a-z]/g, '');
@@ -156,14 +141,15 @@ export const generatePrisma = (compiledEntities: any[], edges: any[]) => {
             schema += `  ${name} ${type}${isOptional}${isPK ? ' @id' : ''}${isUnique}\n`;
         });
 
-        // Foreign Keys (The scalar side of 1:N)
         const usedObjNames = new Set<string>();
         if (entity.foreignKeys && entity.foreignKeys.length > 0) {
             entity.foreignKeys.forEach((fk: any) => {
                 const type = mapPrismaType(fk.dataType);
+
+                // Print the Semantic Scalar column (e.g. 'sends_u_id')
                 schema += `  ${fk.name} ${type}\n`;
 
-                let finalObjName = fk.objectName;
+                let finalObjName = fk.uniqueObjectName;
                 let counter = 1;
 
                 while (
@@ -171,17 +157,16 @@ export const generatePrisma = (compiledEntities: any[], edges: any[]) => {
                     usedObjNames.has(finalObjName) ||
                     finalObjName === fk.name
                 ) {
-                    finalObjName = `${fk.objectName}_${counter}`;
-                    counter++;
+                    finalObjName = `${fk.uniqueObjectName}_${counter++}`;
                 }
                 usedObjNames.add(finalObjName);
 
+                // Print the Semantic Relation Object (e.g. 'sends USERR @relation("sends_u_id")')
                 const relTag = fk.relationString ? `${fk.relationString}, ` : "";
                 schema += `  ${finalObjName} ${fk.referencesTable} @relation(${relTag}fields: [${fk.name}], references: [${fk.referencesCol}])\n`;
             });
         }
 
-        // Back Relations & Implicit M:N Arrays
         const tableBackRels = backRelations[entity.data.label];
         const tableImplicitM2M = implicitManyToMany[entity.data.label];
 

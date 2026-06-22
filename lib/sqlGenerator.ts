@@ -1,10 +1,11 @@
+// lib/sqlGenerator.ts
+
 export type SQLDialect = 'mysql' | 'oracle';
 
 const mapDataType = (dataType: string, dialect: SQLDialect) => {
     const upperType = (dataType || 'VARCHAR').toUpperCase();
     if (dialect === 'mysql') return upperType;
 
-    // 🌟 THE FIX: Broadened Oracle Mappings
     if (dialect === 'oracle') {
         if (upperType === 'VARCHAR') return 'VARCHAR2';
         if (upperType === 'INT' || upperType === 'INTEGER') return 'NUMBER';
@@ -13,7 +14,7 @@ const mapDataType = (dataType: string, dialect: SQLDialect) => {
         if (upperType === 'BOOLEAN') return 'BOOLEAN';
         if (upperType === 'DECIMAL') return 'NUMBER';
     }
-    return upperType;// DATE -> DATE
+    return upperType;
 };
 
 const getPKDetails = (entity: any) => {
@@ -36,6 +37,7 @@ const getPKDetails = (entity: any) => {
 export const preProcessRelationships = (compiledEntities: any[], edges: any[]) => {
     let processedEntities = compiledEntities.map(e => ({ ...e, foreignKeys: [], compositePK: [] }));
     const relationshipEdges = edges.filter(e => e.type === 'relationship');
+    const usedJunctionNames = new Set<string>();
 
     relationshipEdges.forEach(edge => {
         const sourceNode = processedEntities.find(n => n.id === edge.source);
@@ -51,11 +53,28 @@ export const preProcessRelationships = (compiledEntities: any[], edges: any[]) =
 
         if (!sourcePK || !targetPK) return;
 
+        // 🌟 SEMANTIC EDGE EXTRACTION
+        const edgeLabel = edge.data?.label && edge.data.label !== 'REL'
+            ? String(edge.data.label).trim().replace(/[^a-zA-Z0-9_]/g, '')
+            : '';
+
         if ((sourceMax === 'M' || sourceMax === 'N') && (targetMax === 'M' || targetMax === 'N')) {
-            const relName = edge.data?.label && edge.data.label !== 'REL' ? `_${edge.data.label}_` : '_';
-            const junctionName = `${sourceNode.data.label}${relName}${targetNode.data.label}`;
-            const fk1Name = `${sourceNode.data.label.toLowerCase()}_${sourcePK.name}`;
-            const fk2Name = `${targetNode.data.label.toLowerCase()}_${targetPK.name}`;
+            const relStr = edgeLabel ? `_${edgeLabel}_` : '_';
+            let junctionName = `${sourceNode.data.label}${relStr}${targetNode.data.label}`;
+
+            let jCounter = 1;
+            while (usedJunctionNames.has(junctionName.toUpperCase())) {
+                junctionName = `${sourceNode.data.label}${relStr}${targetNode.data.label}_${jCounter++}`;
+            }
+            usedJunctionNames.add(junctionName.toUpperCase());
+
+            let fk1Name = `${sourceNode.data.label.toLowerCase()}_${sourcePK.name}`;
+            let fk2Name = `${targetNode.data.label.toLowerCase()}_${targetPK.name}`;
+
+            if (fk1Name === fk2Name) {
+                fk1Name = `parent_${fk1Name}`;
+                fk2Name = `child_${fk2Name}`;
+            }
 
             processedEntities.push({
                 id: `junction_${edge.id}`,
@@ -71,12 +90,23 @@ export const preProcessRelationships = (compiledEntities: any[], edges: any[]) =
         }
 
         if (edge.source === edge.target) {
-            const relName = edge.data?.label && edge.data.label !== 'REL' ? edge.data.label.toLowerCase() : 'parent';
-            sourceNode.foreignKeys.push({ name: `${relName}_${sourcePK.name}`, dataType: sourcePK.dataType, size: sourcePK.size, referencesTable: sourceNode.data.label, referencesCol: sourcePK.name });
+            const relName = edgeLabel ? edgeLabel.toLowerCase() : 'parent';
+            let fkName = `${relName}_${sourcePK.name}`;
+
+            let counter = 1;
+            // create a set for each node ❌ => traverse on attributes of each source ✅
+            while (
+                sourceNode.attributes.some((a: any) => (a.name || a.data?.label) === fkName) ||
+                sourceNode.foreignKeys.some((fk: any) => fk.name === fkName)
+            ) {
+                fkName = `${relName}_${sourcePK.name}_${counter++}`;
+            }
+
+            sourceNode.foreignKeys.push({ name: fkName, dataType: sourcePK.dataType, size: sourcePK.size, referencesTable: sourceNode.data.label, referencesCol: sourcePK.name });
             return;
         }
 
-        let receivingNode, referencingNode, referencingPK;
+        let receivingNode: any, referencingNode: any, referencingPK: any;
         if (sourceMax === '1' && (targetMax === 'N' || targetMax === 'M')) {
             receivingNode = targetNode; referencingNode = sourceNode; referencingPK = sourcePK;
         } else if ((sourceMax === 'M' || sourceMax === 'N') && targetMax === '1') {
@@ -85,7 +115,19 @@ export const preProcessRelationships = (compiledEntities: any[], edges: any[]) =
             receivingNode = targetNode; referencingNode = sourceNode; referencingPK = sourcePK;
         }
 
-        receivingNode.foreignKeys.push({ name: `${referencingNode.data.label.toLowerCase()}_${referencingPK.name}`, dataType: referencingPK.dataType, size: referencingPK.size, referencesTable: referencingNode.data.label, referencesCol: referencingPK.name });
+        // 🌟 THE FIX: Calculate FK column name based directly on the Edge Label!
+        const basePrefix = edgeLabel ? edgeLabel.toLowerCase() : referencingNode.data.label.toLowerCase();
+        let fkName = `${basePrefix}_${referencingPK.name}`;
+
+        let counter = 1;
+        while (
+            receivingNode.attributes.some((a: any) => (a.name || a.data?.label) === fkName) ||
+            receivingNode.foreignKeys.some((fk: any) => fk.name === fkName)
+        ) {
+            fkName = `${basePrefix}_${referencingPK.name}_${counter++}`;
+        }
+
+        receivingNode.foreignKeys.push({ name: fkName, dataType: referencingPK.dataType, size: referencingPK.size, referencesTable: referencingNode.data.label, referencesCol: referencingPK.name, edgeLabel });
     });
 
     const normalizedChildTables: any[] = [];
@@ -102,16 +144,13 @@ export const preProcessRelationships = (compiledEntities: any[], edges: any[]) =
             if (rawType === 'multivalued') {
                 const attrName = attr.name || attr.data?.label || 'Value';
                 const parentName = entity.data?.label || 'Parent';
-
                 const childTableName = `${parentName}_${attrName}`;
                 const fkName = `${parentName.toLowerCase()}_${pk.name}`;
 
                 normalizedChildTables.push({
                     id: `child_${attr.id || Math.random()}`,
                     data: { label: childTableName, primaryKey: 'COMPOSITE' },
-                    attributes: [
-                        { ...attr, name: attrName, attributeType: 'simple', data: { ...(attr.data || {}), attributeType: 'simple', label: attrName } }
-                    ],
+                    attributes: [{ ...attr, name: attrName, attributeType: 'simple', data: { ...(attr.data || {}), attributeType: 'simple', label: attrName } }],
                     foreignKeys: [{ name: fkName, dataType: pk.dataType, size: pk.size, referencesTable: parentName, referencesCol: pk.name }],
                     compositePK: [fkName, attrName]
                 });
@@ -159,8 +198,6 @@ const buildTableSQL = (entity: any, dialect: SQLDialect) => {
 
         const isPK = entity.data.primaryKey === name || entity.data.primaryKey === rawAttr.id;
         const pkStr = (isPK && entity.data.primaryKey !== 'COMPOSITE') ? " PRIMARY KEY" : "";
-
-        // 🌟 THE FIX: Inject Constraints
         const isNotNull = (rawAttr.isNotNull || rawAttr.data?.isNotNull) && !isPK ? " NOT NULL" : "";
         const isUnique = (rawAttr.isUnique || rawAttr.data?.isUnique) && !isPK ? " UNIQUE" : "";
 
@@ -189,7 +226,6 @@ const buildTableSQL = (entity: any, dialect: SQLDialect) => {
     }
 
     if (comments.length > 0) tableScript += comments.join('\n') + '\n';
-
     const allTableLines = [...columnDefinitions, ...constraints];
     tableScript += allTableLines.join(',\n');
     tableScript += `\n);\n\n`;

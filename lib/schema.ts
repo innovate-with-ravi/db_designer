@@ -1,20 +1,20 @@
 import { z } from 'zod';
 
 const SQL_RESERVED_WORDS = new Set([
-    "USER", "GROUP", "ORDER", "KEY", "KEYS", "INDEX", "RANK", "SYSTEM", "FUNCTION", 
+    "USER", "GROUP", "ORDER", "KEY", "KEYS", "INDEX", "RANK", "SYSTEM", "FUNCTION",
     "RANGE", "ROW", "ROWS", "VALUE", "VALUES", "CHECK", "CONDITION", "USAGE",
-    "CURRENT_DATE", "CURRENT_TIME", "CURRENT_TIMESTAMP", "CURRENT_USER", "UTC_DATE", 
-    "UTC_TIME", "UTC_TIMESTAMP", "ADD", "ALL", "ALTER", "AND", "AS", "BETWEEN", 
-    "BOTH", "BY", "CALL", "CASE", "CHANGE", "CONSTRAINT", "CREATE", "CROSS", "DELETE", 
-    "DESC", "DESCRIBE", "DISTINCT", "DROP", "EACH", "ELSE", "ELSEIF", "EXCEPT", 
-    "EXISTS", "EXPLAIN", "FALSE", "FETCH", "FOR", "FORCE", "FOREIGN", "FROM", "FULL", 
-    "GRANT", "HAVING", "IF", "IN", "INNER", "INSERT", "INTERVAL", "INTO", "IS", 
-    "JOIN", "LEADING", "LEFT", "LIKE", "LIMIT", "LOCK", "LOOP", "MATCH", "NATURAL", 
-    "NOT", "NULL", "ON", "OPTION", "OR", "OUT", "OUTER", "OVER", "PRIMARY", 
-    "PROCEDURE", "READ", "READS", "REFERENCES", "RELEASE", "RENAME", "REPEAT", 
-    "REPLACE", "REQUIRE", "RETURN", "REVOKE", "RIGHT", "SELECT", "SET", "SHOW", 
-    "SIGNAL", "START", "TABLE", "THEN", "TO", "TRAILING", "TRIGGER", "TRUE", "UNION", 
-    "UNIQUE", "UNLOCK", "UNSIGNED", "UPDATE", "USE", "USING", "WHEN", "WHERE", 
+    "CURRENT_DATE", "CURRENT_TIME", "CURRENT_TIMESTAMP", "CURRENT_USER", "UTC_DATE",
+    "UTC_TIME", "UTC_TIMESTAMP", "ADD", "ALL", "ALTER", "AND", "AS", "BETWEEN",
+    "BOTH", "BY", "CALL", "CASE", "CHANGE", "CONSTRAINT", "CREATE", "CROSS", "DELETE",
+    "DESC", "DESCRIBE", "DISTINCT", "DROP", "EACH", "ELSE", "ELSEIF", "EXCEPT",
+    "EXISTS", "EXPLAIN", "FALSE", "FETCH", "FOR", "FORCE", "FOREIGN", "FROM", "FULL",
+    "GRANT", "HAVING", "IF", "IN", "INNER", "INSERT", "INTERVAL", "INTO", "IS",
+    "JOIN", "LEADING", "LEFT", "LIKE", "LIMIT", "LOCK", "LOOP", "MATCH", "NATURAL",
+    "NOT", "NULL", "ON", "OPTION", "OR", "OUT", "OUTER", "OVER", "PRIMARY",
+    "PROCEDURE", "READ", "READS", "REFERENCES", "RELEASE", "RENAME", "REPEAT",
+    "REPLACE", "REQUIRE", "RETURN", "REVOKE", "RIGHT", "SELECT", "SET", "SHOW",
+    "SIGNAL", "START", "TABLE", "THEN", "TO", "TRAILING", "TRIGGER", "TRUE", "UNION",
+    "UNIQUE", "UNLOCK", "UNSIGNED", "UPDATE", "USE", "USING", "WHEN", "WHERE",
     "WHILE", "WINDOW", "WITH", "WRITE", "XOR"
 ]);
 
@@ -35,11 +35,11 @@ export const attributeSchema = z.preprocess(
         isUnique: z.boolean().optional(),
         isNotNull: z.boolean().optional()
     }).refine((attr) => {
-        if (attr.attributeType === 'composite') return true; 
+        if (attr.attributeType === 'composite') return true;
         return !!attr.dataType && attr.dataType.trim().length > 0;
     }, { message: "Data type is required", path: ["dataType"] }
     ).refine((attr) => {
-        if (attr.attributeType === 'composite') return true; 
+        if (attr.attributeType === 'composite') return true;
 
         const dataType = attr.dataType?.toUpperCase?.() ?? '';
         // 🌟 THE FIX: Only demand size for specific string types
@@ -77,7 +77,7 @@ export const entitySchema = z.object({
     return !SQL_RESERVED_WORDS.has(entity.data.label.toUpperCase());
 }, {
     message: `Entity Name cannot be an SQL reserved keyword`,
-    path: ["data", "label"] 
+    path: ["data", "label"]
 });
 
 export const databaseSchema = z.array(entitySchema);

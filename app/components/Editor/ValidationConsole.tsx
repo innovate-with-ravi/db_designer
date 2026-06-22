@@ -50,6 +50,7 @@ export default function ValidationConsole() {
                 const remainingErrors: ValidationError[] = validationResult.error.issues.map((issue) => {
                     const entityIndex = issue.path[0] as number;
                     const brokenEntity = compressedData[entityIndex];
+                    console.log("brokenEntity:", brokenEntity);
                     const fieldName = issue.path[issue.path.length - 1] as string;
 
                     // 🌟 THE FIX: Intelligently extract exactly which attribute broke!
@@ -58,7 +59,7 @@ export default function ValidationConsole() {
 
                     if (issue.path[1] === 'attributes' && typeof issue.path[2] === 'number') {
                         const brokenAttr = brokenEntity.attributes[issue.path[2]];
-                        const attrLabel = /*brokenAttr.name ||*/ brokenAttr.data?.label || `Attribute ${issue.path[2]}`;
+                        const attrLabel = (brokenAttr as any).name || brokenAttr.data?.label || `Attribute ${issue.path[2]}`;
                         specificNodeId = brokenAttr.id || brokenEntity.id;
 
                         customMessage = `Attribute '${attrLabel}' (in Table '${brokenEntity.data?.label}') has an error in '${fieldName}': ${issue.message}`;

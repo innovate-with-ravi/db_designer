@@ -345,6 +345,39 @@ export default function EditorPage({ title }: { title: string }) {
     const handleExportClick = () => {
         const isTopologicallyValid = validateDiagram();
         if (!isTopologicallyValid) return;
+
+        const compressedData = compileDiagramState(nodes, edges);
+        const validationResult = databaseSchema.safeParse(compressedData);
+
+        if (validationResult.success) {
+            setGlobalErrors([]);
+        } else {
+            const remainingErrors: ValidationError[] = validationResult.error.issues.map((issue) => {
+                const entityIndex = issue.path[0] as number;
+                const brokenEntity = compressedData[entityIndex];
+                const fieldName = issue.path[issue.path.length - 1] as string;
+
+                // 🌟 THE FIX: Intelligently extract exactly which attribute broke!
+                let specificNodeId = brokenEntity.id;
+                let customMessage = `Table '${brokenEntity.data?.label || 'Unknown'}' has an error in '${fieldName}': ${issue.message}`;
+
+                if (issue.path[1] === 'attributes' && typeof issue.path[2] === 'number') {
+                    const brokenAttr = brokenEntity.attributes[issue.path[2]];
+                    const attrLabel = /*brokenAttr.name ||*/ brokenAttr.data?.label || `Attribute ${issue.path[2]}`;
+                    specificNodeId = brokenAttr.id || brokenEntity.id;
+
+                    customMessage = `Attribute '${attrLabel}' (in Table '${brokenEntity.data?.label}') has an error in '${fieldName}': ${issue.message}`;
+                }
+
+                return {
+                    message: customMessage,
+                    nodeId: specificNodeId
+                };
+            });
+            setGlobalErrors(remainingErrors);
+            return;
+        }
+
         setIsExportModalOpen(true);
     };
 
