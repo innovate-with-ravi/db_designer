@@ -10,6 +10,7 @@ const mapPrismaType = (sqlType: string) => {
     return 'String';
 };
 
+// Grammar helper for clean Prisma arrays
 const pluralize = (word: string) => {
     if (!word) return 'items';
     const lower = word.toLowerCase();
@@ -25,10 +26,50 @@ export const generatePrisma = (compiledEntities: any[], edges: any[]) => {
 
     const processedEntities = preProcessRelationships(compiledEntities, edges);
 
-    const backRelations: Record<string, string[]> = {};
-    const implicitManyToMany: Record<string, string[]> = {};
+    // 🌟 1. THE ARCHITECTURE UPGRADE: Strict Scoped Trackers
+    const modelRelations: Record<string, string[]> = {};
+    const usedModelFields: Record<string, Set<string>> = {};
     const globalUsedRelationTags = new Set<string>();
 
+    // Helper: Guarantees a field name is 100% unique inside its specific model
+    const getUniqueField = (model: string, baseName: string) => {
+        if (!usedModelFields[model]) usedModelFields[model] = new Set();
+
+        let finalName = baseName;
+        let counter = 1;
+        while (usedModelFields[model].has(finalName)) {
+            finalName = `${baseName}_${counter++}`;
+        }
+        usedModelFields[model].add(finalName);
+        return finalName;
+    };
+
+    // Initialize trackers with {physical attributes} so relations never overwrite them
+    processedEntities.forEach((e: any) => {
+        usedModelFields[e.data.label] = new Set();
+        modelRelations[e.data.label] = [];
+
+        e.attributes.forEach((a: any) => {
+            const n = a.name || a.data?.label;
+            if (n) usedModelFields[e.data.label].add(n);
+        });
+    });
+
+    // Count ALL connections between tables to detect ambiguity
+    const pairCount: Record<string, number> = {};
+
+    edges.forEach(e => {
+        if (e.type === 'relationship') {
+            const src = compiledEntities.find(n => n.id === e.source)?.data?.label;
+            const tgt = compiledEntities.find(n => n.id === e.target)?.data?.label;
+            if (src && tgt) {
+                pairCount[`${src}_${tgt}`] = (pairCount[`${src}_${tgt}`] || 0) + 1;
+                pairCount[`${tgt}_${src}`] = (pairCount[`${tgt}_${src}`] || 0) + 1;
+            }
+        }
+    });
+
+    // 🌟 2. Semantic M:N (Junctions)
     const finalEntities = processedEntities.filter((entity: any) => {
         if (String(entity.id).startsWith('junction_')) {
             const fk1 = entity.foreignKeys[0];
@@ -36,88 +77,74 @@ export const generatePrisma = (compiledEntities: any[], edges: any[]) => {
             const tableA = fk1.referencesTable;
             const tableB = fk2.referencesTable;
 
-            if (!implicitManyToMany[tableA]) implicitManyToMany[tableA] = [];
-            if (!implicitManyToMany[tableB]) implicitManyToMany[tableB] = [];
-            /*
-              instead of message[] -> sends_message
-              instead of user[] -> sends_user
-              
-              i.e. ${relationName}_{entityName(other entity name connected to this model using relationName relationship)}
-            */
+            const edgeId = String(entity.id).replace('junction_', '');
+            const originalEdge = edges.find(e => String(e.id) === edgeId);
+            const edgeLabel = originalEdge?.data?.label && originalEdge.data.label !== 'REL'
+                ? String(originalEdge.data.label).replace(/[^a-zA-Z0-9_]/g, '')
+                : '';
 
-            let cleanRelName = entity.data.label;
-            let mCounter = 1;
-            while (globalUsedRelationTags.has(cleanRelName)) {
-                cleanRelName = `${entity.data.label}_${mCounter++}`;
-            }
-            globalUsedRelationTags.add(cleanRelName);
+            // Prefix array with Semantic Label (e.g., receives_messages)
+            const prefix = edgeLabel ? `${edgeLabel.toLowerCase()}_` : '';
+            const arrA = getUniqueField(tableA, `${prefix}${pluralize(tableB)}`);
+            const arrB = getUniqueField(tableB, `${prefix}${pluralize(tableA)}`);
 
-            let arrA = pluralize(tableB);
-            let arrB = pluralize(tableA);
+            // Tag relation with Semantic Label (e.g., @relation("RECEIVES"))
+            const baseTag = edgeLabel ? edgeLabel.toUpperCase() : `${tableA}_${tableB}`;
+            let finalRelTag = baseTag;
+            let rCount = 1;
+            while (globalUsedRelationTags.has(finalRelTag)) { finalRelTag = `${baseTag}_${rCount++}`; }
+            globalUsedRelationTags.add(finalRelTag);
 
-            let cA = 1, cB = 1;
-            const finalArrA = arrA; const finalArrB = arrB;
-            while (implicitManyToMany[tableA].some(r => r.includes(` ${arrA} `))) { arrA = `${finalArrA}_${cA++}`; }
-            while (implicitManyToMany[tableB].some(r => r.includes(` ${arrB} `))) { arrB = `${finalArrB}_${cB++}`; }
+            modelRelations[tableA].push(`  ${arrA} ${tableB}[] @relation("${finalRelTag}")`);
+            modelRelations[tableB].push(`  ${arrB} ${tableA}[] @relation("${finalRelTag}")`);
 
-            implicitManyToMany[tableA].push(`  ${arrA} ${tableB}[] @relation("${cleanRelName}")`);
-            implicitManyToMany[tableB].push(`  ${arrB} ${tableA}[] @relation("${cleanRelName}")`);
-
-            return false;
+            return false; // Drop physical table
         }
         return true;
     });
 
-    const relCount: Record<string, number> = {};
-    finalEntities.forEach((e: any) => {
-        e.foreignKeys?.forEach((fk: any) => {
-            const key = `${e.data.label}_${fk.referencesTable}`;
-            relCount[key] = (relCount[key] || 0) + 1;
-        });
-    });
-
+    // 🌟 3. Semantic 1:N
     finalEntities.forEach((entity: any) => {
-        if (entity.foreignKeys && entity.foreignKeys.length > 0) {
+        if (entity.foreignKeys) {
             entity.foreignKeys.forEach((fk: any) => {
                 const targetTable = fk.referencesTable;
                 const sourceTable = entity.data.label;
 
-                if (!backRelations[targetTable]) backRelations[targetTable] = [];
+                const edgeLabel = fk.edgeLabel && fk.edgeLabel !== 'REL'
+                    ? String(fk.edgeLabel).replace(/[^a-zA-Z0-9_]/g, '')
+                    : '';
 
-                const isAmbiguous = relCount[`${sourceTable}_${targetTable}`] > 1;
+                const prefix = edgeLabel ? `${edgeLabel.toLowerCase()}_` : '';
 
-                // 🌟 SEMANTIC ARRAY NAMING
-                let prefix = fk.name.replace(new RegExp(`_${fk.referencesCol}$`, 'i'), '').toLowerCase();
-                let arrayName = pluralize(sourceTable);
+                // A. Unique Semantic Scalar (e.g., sends_u_id)
+                fk.uniqueScalarName = getUniqueField(sourceTable, fk.name);
 
-                // If it's a collision, inject the semantic prefix into the back-relation array! (e.g. sends_messages)
-                if (isAmbiguous && prefix !== targetTable.toLowerCase()) {
-                    arrayName = `${prefix}_${arrayName}`;
-                }
+                // B. Unique Semantic Object (e.g., sends_userr)
+                fk.uniqueObjectName = getUniqueField(sourceTable, `${prefix}${targetTable.toLowerCase()}`);
 
-                let finalArrName = arrayName;
-                let aCounter = 1;
-                while (backRelations[targetTable].some(rel => rel.includes(` ${finalArrName} `))) {
-                    finalArrName = `${arrayName}_${aCounter++}`;
-                }
+                // C. Unique Semantic Array (e.g., sends_messages)
+                const arrName = getUniqueField(targetTable, `${prefix}${pluralize(sourceTable)}`);
 
-                if (isAmbiguous) {
-                    let relString = `${fk.name}`;
-                    let rCounter = 1;
-                    while (globalUsedRelationTags.has(relString)) { relString = `${fk.name}_${rCounter++}`; }
-                    globalUsedRelationTags.add(relString);
-                    fk.relationString = `"${relString}"`;
+                // Semantic @relation Tag
+                const isAmbiguous = pairCount[`${sourceTable}_${targetTable}`] > 1;
+                if (edgeLabel || isAmbiguous) {
+                    const baseTag = edgeLabel ? edgeLabel.toUpperCase() : `${sourceTable}_${targetTable}`;
+                    let finalRelTag = baseTag;
+                    let rCount = 1;
+                    while (globalUsedRelationTags.has(finalRelTag)) { finalRelTag = `${baseTag}_${rCount++}`; }
+                    globalUsedRelationTags.add(finalRelTag);
+                    fk.relationString = `"${finalRelTag}"`;
                 } else {
                     fk.relationString = null;
                 }
 
-                const relTag = fk.relationString ? ` @relation(${fk.relationString})` : "";
-                backRelations[targetTable].push(`  ${finalArrName} ${sourceTable}[]${relTag}`);
-                fk.uniqueObjectName = prefix; // Save the object prefix for model generation below
+                const relStr = fk.relationString ? ` @relation(${fk.relationString})` : '';
+                modelRelations[targetTable].push(`  ${arrName} ${sourceTable}[]${relStr}`);
             });
         }
     });
 
+    // 4. Code Output
     finalEntities.forEach((entity: any) => {
         schema += `model ${entity.data.label} {\n`;
 
@@ -141,39 +168,20 @@ export const generatePrisma = (compiledEntities: any[], edges: any[]) => {
             schema += `  ${name} ${type}${isOptional}${isPK ? ' @id' : ''}${isUnique}\n`;
         });
 
-        const usedObjNames = new Set<string>();
-        if (entity.foreignKeys && entity.foreignKeys.length > 0) {
+        if (entity.foreignKeys) {
             entity.foreignKeys.forEach((fk: any) => {
                 const type = mapPrismaType(fk.dataType);
+                schema += `  ${fk.uniqueScalarName} ${type}\n`;
 
-                // Print the Semantic Scalar column (e.g. 'sends_u_id')
-                schema += `  ${fk.name} ${type}\n`;
-
-                let finalObjName = fk.uniqueObjectName;
-                let counter = 1;
-
-                while (
-                    entity.attributes.some((a: any) => (a.name || a.data?.label) === finalObjName) ||
-                    usedObjNames.has(finalObjName) ||
-                    finalObjName === fk.name
-                ) {
-                    finalObjName = `${fk.uniqueObjectName}_${counter++}`;
-                }
-                usedObjNames.add(finalObjName);
-
-                // Print the Semantic Relation Object (e.g. 'sends USERR @relation("sends_u_id")')
                 const relTag = fk.relationString ? `${fk.relationString}, ` : "";
-                schema += `  ${finalObjName} ${fk.referencesTable} @relation(${relTag}fields: [${fk.name}], references: [${fk.referencesCol}])\n`;
+                schema += `  ${fk.uniqueObjectName} ${fk.referencesTable} @relation(${relTag}fields: [${fk.uniqueScalarName}], references: [${fk.referencesCol}])\n`;
             });
         }
 
-        const tableBackRels = backRelations[entity.data.label];
-        const tableImplicitM2M = implicitManyToMany[entity.data.label];
-
-        if ((tableBackRels && tableBackRels.length > 0) || (tableImplicitM2M && tableImplicitM2M.length > 0)) {
+        const tableRels = modelRelations[entity.data.label];
+        if (tableRels && tableRels.length > 0) {
             schema += `\n  // Relations\n`;
-            if (tableBackRels) tableBackRels.forEach(rel => { schema += `${rel}\n`; });
-            if (tableImplicitM2M) tableImplicitM2M.forEach(rel => { schema += `${rel}\n`; });
+            tableRels.forEach(rel => { schema += `${rel}\n`; });
         }
 
         if (entity.compositePK && entity.compositePK.length > 0) {
