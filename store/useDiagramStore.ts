@@ -237,6 +237,7 @@ const useDiagramStore = create<DiagramState>((set, get) => ({
 
     const seenTableNames = new Set<string>();
 
+    // 1. Validate Entities & Attributes
     entities.forEach((entity) => {
       const tableName = entity.data.label || 'Unnamed_Table';
 
@@ -308,7 +309,6 @@ const useDiagramStore = create<DiagramState>((set, get) => ({
             if (!upperType) {
               errors.push({ message: `Column '${attrName}' in table '${tableName}' is missing a Data Type.`, nodeId: attr.id || entity.id });
             } else if ((upperType === 'VARCHAR' || upperType === 'CHAR') && (!attr.size || attr.size.trim() === '')) {
-              // 🌟 THE FIX: Only demand size for specific types
               errors.push({ message: `Column '${attrName}' in table '${tableName}' requires a Size (e.g., 255).`, nodeId: attr.id || entity.id });
             }
           }
@@ -317,6 +317,42 @@ const useDiagramStore = create<DiagramState>((set, get) => ({
 
       if (!hasRelationships && entities.length > 1 && allAttrs.length > 0) {
         errors.push({ message: `Warning: Table '${tableName}' is completely disconnected from the rest of the database.`, nodeId: entity.id });
+      }
+    });
+
+    // 🌟 2. NEW GATEKEEPER: Validate Edges (Semantic Names & Duplicates)
+    const relationshipEdges = edges.filter(e => e.type === 'relationship');
+
+    const edgePairs = new Map<string, Set<string>>();
+
+    relationshipEdges.forEach(edge => {
+      const sourceNode = nodes.find(n => n.id === edge.source);
+      const targetNode = nodes.find(n => n.id === edge.target);
+      if (!sourceNode || !targetNode) return;
+
+      const sourceName = sourceNode.data.label || 'Unknown';
+      const targetName = targetNode.data.label || 'Unknown';
+      const label = String(edge.data?.label || '').trim();
+
+      // Check A: Is it empty or the default 'REL'?
+      if (!label || label.toUpperCase() === 'REL') {
+        errors.push({
+          message: `Relationship '${label}' between '${sourceName}' and '${targetName}' requires a valid semantic name. Please double-click the edge to rename it.`,
+          nodeId: sourceNode.id // Triggers the warning badge on the source node!
+        });
+      } else {
+        // Check B: Is it a duplicate label between these exact two tables?
+        const pairKey = [sourceNode.id, targetNode.id].sort().join('-');
+        if (!edgePairs.has(pairKey)) edgePairs.set(pairKey, new Set());
+
+        const upperLabel = label.toUpperCase();
+        if (edgePairs.get(pairKey)!.has(upperLabel)) {
+          errors.push({
+            message: `Duplicate relationship name '${label}' between '${sourceName}' and '${targetName}'. Each connection must have a unique semantic name.`,
+            nodeId: sourceNode.id
+          });
+        }
+        edgePairs.get(pairKey)!.add(upperLabel);
       }
     });
 

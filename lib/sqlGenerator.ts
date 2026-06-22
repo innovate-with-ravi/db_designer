@@ -11,7 +11,7 @@ const mapDataType = (dataType: string, dialect: SQLDialect) => {
         if (upperType === 'INT' || upperType === 'INTEGER') return 'NUMBER';
         if (upperType === 'DATETIME') return 'TIMESTAMP';
         if (upperType === 'TEXT') return 'CLOB';
-        if (upperType === 'BOOLEAN') return 'BOOLEAN';
+        if (upperType === 'BOOLEAN') return 'NUMBER(1)'; // Standardizing boolean mapping
         if (upperType === 'DECIMAL') return 'NUMBER';
     }
     return upperType;
@@ -34,6 +34,70 @@ const getPKDetails = (entity: any) => {
     };
 };
 
+// Kahn's Algorithm for Topological Sorting
+const performTopologicalSort = (entities: any[]) => {
+    // instead of storing whole entityNode, just store entityName (save complexity)
+    const adjList = new Map<string, string[]>();// u_label ->{v1_label, v2_label...}
+    const inDegree = new Map<string, number>();
+    const entityMap = new Map<string, any>();// label -> entityNode
+
+    // 1. Initialize Graph Maps
+    entities.forEach(entity => {
+        const name = entity.data.label;
+        adjList.set(name, []);
+        inDegree.set(name, 0);
+        entityMap.set(name, entity);
+    });
+
+    // 2. Build Dependency Graph (Parent -> Child)
+    // go to each entity(v), see to which entities(u(s)) they are referencing & add u->v
+    entities.forEach(entity => {
+        const childName/*v*/ = entity.data.label;
+
+        if (entity.foreignKeys) {
+            entity.foreignKeys.forEach((fk: any) => {
+                const parentName/*u*/ = fk.referencesTable;
+
+                // Ignore self-referencing to prevent immediate false cycles ((DAG))
+                if (parentName !== childName && adjList.has(parentName)) {
+                    adjList.get(parentName)!.push(childName);
+                    inDegree.set(childName, inDegree.get(childName)! + 1);
+                }
+            });
+        }
+    });
+
+    // 3. Kahn's Algorithm (BFS)
+    const queue: string[] = [];
+    inDegree.forEach((degree, name) => {
+        if (degree === 0) queue.push(name);
+    });
+
+    const sortedNames: string[] = [];// topo order
+
+    while (queue.length > 0) {
+        const current = queue.shift()!;//u
+        sortedNames.push(current);
+
+        const neighbors = adjList.get(current) || [];// v
+        neighbors.forEach(neighbor => {
+            inDegree.set(neighbor, inDegree.get(neighbor)! - 1);
+            if (inDegree.get(neighbor) === 0) {
+                queue.push(neighbor);
+            }
+        });
+    }
+
+    // 4. Handle Circular Dependencies (Fallback for cyclic schemas) => no topo order
+    if (sortedNames.length !== entities.length) {
+        inDegree.forEach((degree, name) => {
+            if (degree > 0) sortedNames.push(name);
+        });
+    }
+
+    return sortedNames.map(name => entityMap.get(name));
+};
+
 export const preProcessRelationships = (compiledEntities: any[], edges: any[]) => {
     let processedEntities = compiledEntities.map(e => ({ ...e, foreignKeys: [], compositePK: [] }));
     const relationshipEdges = edges.filter(e => e.type === 'relationship');
@@ -53,7 +117,6 @@ export const preProcessRelationships = (compiledEntities: any[], edges: any[]) =
 
         if (!sourcePK || !targetPK) return;
 
-        // 🌟 SEMANTIC EDGE EXTRACTION
         const edgeLabel = edge.data?.label && edge.data.label !== 'REL'
             ? String(edge.data.label).trim().replace(/[^a-zA-Z0-9_]/g, '')
             : '';
@@ -94,7 +157,6 @@ export const preProcessRelationships = (compiledEntities: any[], edges: any[]) =
             let fkName = `${relName}_${sourcePK.name}`;
 
             let counter = 1;
-            // create a set for each node ❌ => traverse on attributes of each source ✅
             while (
                 sourceNode.attributes.some((a: any) => (a.name || a.data?.label) === fkName) ||
                 sourceNode.foreignKeys.some((fk: any) => fk.name === fkName)
@@ -115,7 +177,6 @@ export const preProcessRelationships = (compiledEntities: any[], edges: any[]) =
             receivingNode = targetNode; referencingNode = sourceNode; referencingPK = sourcePK;
         }
 
-        // 🌟 THE FIX: Calculate FK column name based directly on the Edge Label!
         const basePrefix = edgeLabel ? edgeLabel.toLowerCase() : referencingNode.data.label.toLowerCase();
         let fkName = `${basePrefix}_${referencingPK.name}`;
 
@@ -162,7 +223,10 @@ export const preProcessRelationships = (compiledEntities: any[], edges: any[]) =
         entity.attributes = standardAttributes;
     });
 
-    return [...processedEntities, ...normalizedChildTables];
+    const allEntities = [...processedEntities, ...normalizedChildTables];
+
+    // 🌟 Pass the entire payload through the Topo-Sorter before it hits SQL or Prisma generators!
+    return performTopologicalSort(allEntities);
 };
 
 export const generateSQL = (compiledEntities: any[], edges: any[], dialect: SQLDialect = 'mysql') => {
@@ -225,10 +289,16 @@ const buildTableSQL = (entity: any, dialect: SQLDialect) => {
         }
     }
 
+    // 🌟 FORMATTING FIX: Ensuring commas are placed correctly between columns and constraints
     if (comments.length > 0) tableScript += comments.join('\n') + '\n';
-    const allTableLines = [...columnDefinitions, ...constraints];
-    tableScript += allTableLines.join(',\n');
-    tableScript += `\n);\n\n`;
+
+    let body = columnDefinitions.join(',\n');
+
+    if (constraints.length > 0) {
+        body += ',\n\n    -- Constraints\n' + constraints.join(',\n');
+    }
+
+    tableScript += body + '\n);\n\n';
 
     return tableScript;
 }
