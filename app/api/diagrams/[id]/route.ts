@@ -45,7 +45,7 @@ export async function DELETE(request: Request, { params }: { params: Promise<{ i
 // ----------------------------------------------------------------------
 // PUT: Updates/Auto-Saves a specific project
 // ----------------------------------------------------------------------
-export async function PUT(request: Request, { params }: { params: { id: string } }) {
+export async function PUT(request: Request, { params }: { params: Promise<{ id: string }> }) {
     try {
         // 1. Authenticate
         const session = await auth();
