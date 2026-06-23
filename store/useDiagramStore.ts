@@ -12,6 +12,9 @@ import {
   applyEdgeChanges
 } from '@xyflow/react';
 
+import { compileDiagramState } from '@/lib/compiler';
+import { databaseSchema } from '@/lib/schema';
+
 export interface ValidationError {
   message: string;
   nodeId: string | null; // Track exactly which node broke
@@ -237,15 +240,12 @@ const useDiagramStore = create<DiagramState>((set, get) => ({
 
     const seenTableNames = new Set<string>();
 
-    // 1. Validate Entities & Attributes
+    // 1. TOPOLOGICAL CHECKS
     entities.forEach((entity) => {
       const tableName = entity.data.label || 'Unnamed_Table';
 
       if (!isValidName(tableName as string)) {
-        errors.push({
-          message: `Table '${tableName}' has an invalid name. Use only letters, numbers, and underscores (no spaces).`,
-          nodeId: entity.id
-        });
+        errors.push({ message: `Table '${tableName}' has an invalid name. Use only letters, numbers, and underscores (no spaces).`, nodeId: entity.id });
       }
 
       const upperTableName = (tableName as string).toUpperCase();
@@ -290,7 +290,6 @@ const useDiagramStore = create<DiagramState>((set, get) => ({
 
       const hiddenAttrs = entity.data.hiddenAttributes || [];
       const allAttrs = [...visualAttrs, ...hiddenAttrs as any];
-
       const hasRelationships = edges.some(e => e.type === 'relationship' && (e.source === entity.id || e.target === entity.id));
 
       if (allAttrs.length === 0) {
@@ -320,9 +319,7 @@ const useDiagramStore = create<DiagramState>((set, get) => ({
       }
     });
 
-    // 🌟 2. NEW GATEKEEPER: Validate Edges (Semantic Names & Duplicates)
     const relationshipEdges = edges.filter(e => e.type === 'relationship');
-
     const edgePairs = new Map<string, Set<string>>();
 
     relationshipEdges.forEach(edge => {
@@ -334,27 +331,46 @@ const useDiagramStore = create<DiagramState>((set, get) => ({
       const targetName = targetNode.data.label || 'Unknown';
       const label = String(edge.data?.label || '').trim();
 
-      // Check A: Is it empty or the default 'REL'?
       if (!label || label.toUpperCase() === 'REL') {
-        errors.push({
-          message: `Relationship '${label}' between '${sourceName}' and '${targetName}' requires a valid semantic name. Please double-click the edge to rename it.`,
-          nodeId: sourceNode.id // Triggers the warning badge on the source node!
-        });
+        errors.push({ message: `Relationship '${label}' between '${sourceName}' and '${targetName}' requires a valid semantic name.`, nodeId: sourceNode.id });
       } else {
-        // Check B: Is it a duplicate label between these exact two tables?
         const pairKey = [sourceNode.id, targetNode.id].sort().join('-');
         if (!edgePairs.has(pairKey)) edgePairs.set(pairKey, new Set());
 
         const upperLabel = label.toUpperCase();
         if (edgePairs.get(pairKey)!.has(upperLabel)) {
-          errors.push({
-            message: `Duplicate relationship name '${label}' between '${sourceName}' and '${targetName}'. Each connection must have a unique semantic name.`,
-            nodeId: sourceNode.id
-          });
+          errors.push({ message: `Duplicate relationship name '${label}' between '${sourceName}' and '${targetName}'. Each connection must have a unique semantic name.`, nodeId: sourceNode.id });
         }
         edgePairs.get(pairKey)!.add(upperLabel);
       }
     });
+
+    // 🌟 2. ZOD PARSING (Now fully integrated into the store!)
+    // Only run the compiler if topological checks passed to avoid crashing the AST builder
+    if (errors.length === 0) {
+      const compressedData = compileDiagramState(nodes, edges);
+      const validationResult = databaseSchema.safeParse(compressedData);
+
+      if (!validationResult.success) {
+        validationResult.error.issues.forEach((issue) => {
+          const entityIndex = issue.path[0] as number;
+          const brokenEntity = compressedData[entityIndex];
+          const fieldName = issue.path[issue.path.length - 1] as string;
+
+          let specificNodeId = brokenEntity.id;
+          let customMessage = `Table '${brokenEntity.data?.label || 'Unknown'}' has an error in '${fieldName}': ${issue.message}`;
+
+          if (issue.path[1] === 'attributes' && typeof issue.path[2] === 'number') {
+            const brokenAttr = brokenEntity.attributes[issue.path[2]];
+            const attrLabel = brokenAttr.data?.label || `Attribute ${issue.path[2]}`;
+            specificNodeId = brokenAttr.id || brokenEntity.id;
+            customMessage = `Attribute '${attrLabel}' (in Table '${brokenEntity.data?.label}') has an error in '${fieldName}': ${issue.message}`;
+          }
+
+          errors.push({ message: customMessage, nodeId: specificNodeId });
+        });
+      }
+    }
 
     set({ globalErrors: errors });
     return errors.length === 0;

@@ -38,44 +38,12 @@ export default function ValidationConsole() {
         if (!isOpen) return;
 
         const debounceTimer = setTimeout(() => {
-            const isTopologicallyValid = validateDiagram();
-            if (!isTopologicallyValid) return;
-
-            const compressedData = compileDiagramState(nodes, edges);
-            const validationResult = databaseSchema.safeParse(compressedData);
-
-            if (validationResult.success) {
-                setGlobalErrors([]);
-            } else {
-                const remainingErrors: ValidationError[] = validationResult.error.issues.map((issue) => {
-                    const entityIndex = issue.path[0] as number;
-                    const brokenEntity = compressedData[entityIndex];
-                    console.log("brokenEntity:", brokenEntity);
-                    const fieldName = issue.path[issue.path.length - 1] as string;
-
-                    // 🌟 THE FIX: Intelligently extract exactly which attribute broke!
-                    let specificNodeId = brokenEntity.id;
-                    let customMessage = `Table '${brokenEntity.data?.label || 'Unknown'}' has an error in '${fieldName}': ${issue.message}`;
-
-                    if (issue.path[1] === 'attributes' && typeof issue.path[2] === 'number') {
-                        const brokenAttr = brokenEntity.attributes[issue.path[2]];
-                        const attrLabel = (brokenAttr as any).name || brokenAttr.data?.label || `Attribute ${issue.path[2]}`;
-                        specificNodeId = brokenAttr.id || brokenEntity.id;
-
-                        customMessage = `Attribute '${attrLabel}' (in Table '${brokenEntity.data?.label}') has an error in '${fieldName}': ${issue.message}`;
-                    }
-
-                    return {
-                        message: customMessage,
-                        nodeId: specificNodeId
-                    };
-                });
-                setGlobalErrors(remainingErrors);
-            }
+            // One function call handles both topological crawling and Zod schema parsing!
+            validateDiagram();
         }, 500);
 
         return () => clearTimeout(debounceTimer);
-    }, [nodes, edges, isOpen, setGlobalErrors, validateDiagram]);
+    }, [nodes, edges, isOpen, validateDiagram]);
 
 
     // Graph Traversal to find the Parent Entity of a broken attribute!

@@ -27,8 +27,8 @@ export const generatePrisma = (compiledEntities: any[], edges: any[]) => {
 
     const modelRelations: Record<string, string[]> = {};
     const usedModelFields: Record<string, Set<string>> = {};
+    const globalUsedRelationTags = new Set<string>();
 
-    // Helper: Guarantees a field name is 100% unique inside its specific model
     const getUniqueField = (model: string, baseName: string) => {
         if (!usedModelFields[model]) usedModelFields[model] = new Set();
         let finalName = baseName;
@@ -40,7 +40,6 @@ export const generatePrisma = (compiledEntities: any[], edges: any[]) => {
         return finalName;
     };
 
-    // Initialize physical fields so relations don't overwrite them
     processedEntities.forEach((e: any) => {
         usedModelFields[e.data.label] = new Set();
         modelRelations[e.data.label] = [];
@@ -48,6 +47,18 @@ export const generatePrisma = (compiledEntities: any[], edges: any[]) => {
             const n = a.name || a.data?.label;
             if (n) usedModelFields[e.data.label].add(n);
         });
+    });
+
+    // 🌟 COUNT ENGINE: Count ALL physical connections between tables to strictly detect ambiguity
+    const relationCount: Record<string, number> = {};
+    processedEntities.forEach(e => {
+        if (e.foreignKeys) {
+            e.foreignKeys.forEach((fk: any) => {
+                // Sort the table names so A->B and B->A resolve to the same collision pool
+                const pairKey = [e.data.label, fk.referencesTable].sort().join('_');
+                relationCount[pairKey] = (relationCount[pairKey] || 0) + 1;
+            });
+        }
     });
 
     // 🌟 1. Semantic M:N (Junctions)
@@ -61,19 +72,22 @@ export const generatePrisma = (compiledEntities: any[], edges: any[]) => {
             const edgeId = String(entity.id).replace('junction_', '');
             const originalEdge = edges.find(e => String(e.id) === edgeId);
 
-            // Boundary validation guarantees this is a valid semantic string now!
             const edgeLabel = String(originalEdge?.data?.label || '').replace(/[^a-zA-Z0-9_]/g, '');
 
-            const prefix = `${edgeLabel.toLowerCase()}_`;
+            const prefix = edgeLabel ? `${edgeLabel.toLowerCase()}_` : '';
             const arrA = getUniqueField(tableA, `${prefix}${pluralize(tableB)}`);
             const arrB = getUniqueField(tableB, `${prefix}${pluralize(tableA)}`);
 
-            const relTag = edgeLabel.toUpperCase();
+            // M:N always gets a tag because Prisma uses it to physically name the junction table in the DB
+            let finalRelTag = edgeLabel ? edgeLabel.toUpperCase() : `${tableA}_${tableB}`;
+            let rCount = 1;
+            while (globalUsedRelationTags.has(finalRelTag)) { finalRelTag = `${finalRelTag}_${rCount++}`; }
+            globalUsedRelationTags.add(finalRelTag);
 
-            modelRelations[tableA].push(`  ${arrA} ${tableB}[] @relation("${relTag}")`);
-            modelRelations[tableB].push(`  ${arrB} ${tableA}[] @relation("${relTag}")`);
+            modelRelations[tableA].push(`  ${arrA} ${tableB}[] @relation("${finalRelTag}")`);
+            modelRelations[tableB].push(`  ${arrB} ${tableA}[] @relation("${finalRelTag}")`);
 
-            return false; // Drop physical junction table
+            return false;
         }
         return true;
     });
@@ -85,18 +99,31 @@ export const generatePrisma = (compiledEntities: any[], edges: any[]) => {
                 const targetTable = fk.referencesTable;
                 const sourceTable = entity.data.label;
 
-                // Boundary validation guarantees this is a valid semantic string now!
                 const edgeLabel = String(fk.edgeLabel || '').replace(/[^a-zA-Z0-9_]/g, '');
-                const prefix = `${edgeLabel.toLowerCase()}_`;
+                const prefix = edgeLabel ? `${edgeLabel.toLowerCase()}_` : '';
 
                 fk.uniqueScalarName = getUniqueField(sourceTable, fk.name);
                 fk.uniqueObjectName = getUniqueField(sourceTable, `${prefix}${targetTable.toLowerCase()}`);
 
                 const arrName = getUniqueField(targetTable, `${prefix}${pluralize(sourceTable)}`);
-                const relTag = edgeLabel.toUpperCase();
-                fk.relationString = `"${relTag}"`;
 
-                modelRelations[targetTable].push(`  ${arrName} ${sourceTable}[] @relation("${relTag}")`);
+                // 🌟 THE FAANG FIX: Only add the @relation("...") string if there are multiple lines connecting these two exact tables!
+                const pairKey = [sourceTable, targetTable].sort().join('_');
+                const isAmbiguous = relationCount[pairKey] > 1;
+
+                if (isAmbiguous) {
+                    let finalRelTag = edgeLabel ? edgeLabel.toUpperCase() : `${sourceTable}_${targetTable}`;
+                    let rCount = 1;
+                    while (globalUsedRelationTags.has(finalRelTag)) { finalRelTag = `${finalRelTag}_${rCount++}`; }
+                    globalUsedRelationTags.add(finalRelTag);
+                    fk.relationString = `"${finalRelTag}"`;
+                } else {
+                    // No ambiguity? Omit the string completely. Prisma handles it implicitly.
+                    fk.relationString = null;
+                }
+
+                const relStr = fk.relationString ? ` @relation(${fk.relationString})` : '';
+                modelRelations[targetTable].push(`  ${arrName} ${sourceTable}[]${relStr}`);
             });
         }
     });
@@ -129,7 +156,10 @@ export const generatePrisma = (compiledEntities: any[], edges: any[]) => {
             entity.foreignKeys.forEach((fk: any) => {
                 const type = mapPrismaType(fk.dataType);
                 schema += `\n  ${fk.uniqueScalarName} ${type}\n`;
-                schema += `  ${fk.uniqueObjectName} ${fk.referencesTable} @relation(${fk.relationString}, fields: [${fk.uniqueScalarName}], references: [${fk.referencesCol}])\n`;
+
+                // If relationString is null, this outputs a beautifully clean: @relation(fields: [...], references: [...])
+                const relTag = fk.relationString ? `${fk.relationString}, ` : "";
+                schema += `  ${fk.uniqueObjectName} ${fk.referencesTable} @relation(${relTag}fields: [${fk.uniqueScalarName}], references: [${fk.referencesCol}])\n`;
             });
         }
 
