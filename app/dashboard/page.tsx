@@ -6,6 +6,8 @@ import { auth } from '@/auth';
 import Navbar from '../components/layout/Navbar';
 import DeleteProjectButton from '@/app/components/ui/DeleteProjectButton';
 
+export const dynamic = 'force-dynamic';
+
 export async function generateMetadata(parent: ResolvingMetadata): Promise<Metadata> {
     const session = await auth()
 

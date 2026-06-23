@@ -2,6 +2,8 @@ import EditorPage from '@/app/components/Editor/EditorPage'
 import { Metadata } from 'next';
 import { prisma } from '@/lib/prisma'
 
+export const dynamic = 'force-dynamic';
+
 type Props = {
   params: Promise<{ id: string }>;
 };
