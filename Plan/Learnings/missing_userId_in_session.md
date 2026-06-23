@@ -1,3 +1,0 @@
-When you use the JWT strategy (strategy: "jwt"), NextAuth does not automatically fetch the user's database ID on every session request to keep things fast. Instead, it reads data directly from an encrypted cookie stored in the browser. By default, that cookie only contains basic profile information like name, email, and avatar image.
-
-To solve this, we must explicitly instruct NextAuth to inject the database user ID into the web token (jwt) when the user logs in, and then pass that ID into the active session object.

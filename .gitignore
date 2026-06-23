@@ -43,3 +43,6 @@ next-env.d.ts
 /lib/generated/prisma
 
 /generated/prisma
+
+# Plan or Roadmap
+/ownUseData

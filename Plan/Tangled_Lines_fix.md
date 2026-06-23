@@ -1,3 +1,0 @@
-**The Industry Standard Alternative:**
-Top companies solve the "tangled lines" problem differently. Instead of adding more physical handles, they use Dynamic Floating Edges (often called intersection routing).
-With floating edges, you hide the handles entirely. The user drags a line from the center of the Entity box to the center of the Attribute box. React Flow runs a mathematical intersection algorithm under the hood, calculates the exact pixel where the line crosses the border of the box, and automatically anchors the line there. As you drag the shapes, the line slides smoothly along the perimeter automatically.
