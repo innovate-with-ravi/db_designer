@@ -6,7 +6,7 @@ import React from 'react';
 // ----------------------------------------------------------------------
 // DELETE: Deletes a specific project
 // ----------------------------------------------------------------------
-export async function DELETE(request: Request, { params }: { params: { id: string } }) {
+export async function DELETE(request: Request, { params }: { params: Promise<{ id: string }> }) {
     try {
         // 1. Authenticate the Request
         const session = await auth();
