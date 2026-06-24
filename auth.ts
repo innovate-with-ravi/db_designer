@@ -5,18 +5,23 @@ import { PrismaAdapter } from "@auth/prisma-adapter"
 import { prisma } from "@/lib/prisma"
 
 export const { handlers, signIn, signOut, auth } = NextAuth({
-    // 🌟 THE FIX: Cast to 'any' to stop the Prisma type clashing
     adapter: PrismaAdapter(prisma) as any,
-
     providers: [
-        // 🌟 THE FIX: Pass empty objects to satisfy TypeScript's strict arguments rule
-        Google({}),
-        GitHub({})
+        Google({
+            // The OR (||) operator guarantees it finds the key no matter what it's named in Vercel
+            clientId: (process.env.AUTH_GOOGLE_ID || process.env.GOOGLE_CLIENT_ID) as string,
+            clientSecret: (process.env.AUTH_GOOGLE_SECRET || process.env.GOOGLE_CLIENT_SECRET) as string,
+        }),
+        GitHub({
+            clientId: (process.env.AUTH_GITHUB_ID || process.env.GITHUB_CLIENT_ID) as string,
+            clientSecret: (process.env.AUTH_GITHUB_SECRET || process.env.GITHUB_CLIENT_SECRET) as string,
+        })
     ],
     session: {
         strategy: "jwt",
     },
     trustHost: true,
+    secret: process.env.AUTH_SECRET || process.env.NEXTAUTH_SECRET,
 
     callbacks: {
         async session({ session, token }: any) {
