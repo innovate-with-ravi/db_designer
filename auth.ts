@@ -5,10 +5,11 @@ import { PrismaAdapter } from "@auth/prisma-adapter"
 import { prisma } from "@/lib/prisma"
 
 export const { handlers, signIn, signOut, auth } = NextAuth({
-    adapter: PrismaAdapter(prisma) as any,
+    // 🌟 TEMPORARILY COMMENT THIS LINE OUT:
+    // adapter: PrismaAdapter(prisma) as any,
+    
     providers: [
         Google({
-            // The OR (||) operator guarantees it finds the key no matter what it's named in Vercel
             clientId: (process.env.AUTH_GOOGLE_ID || process.env.GOOGLE_CLIENT_ID) as string,
             clientSecret: (process.env.AUTH_GOOGLE_SECRET || process.env.GOOGLE_CLIENT_SECRET) as string,
         }),
@@ -20,9 +21,9 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
     session: {
         strategy: "jwt",
     },
-    trustHost: true,
+    trustHost: true, 
     secret: process.env.AUTH_SECRET || process.env.NEXTAUTH_SECRET,
-
+    
     callbacks: {
         async session({ session, token }: any) {
             if (token?.sub) {
