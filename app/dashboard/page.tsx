@@ -5,6 +5,7 @@ import type { Metadata, ResolvingMetadata } from 'next'
 import { auth } from '@/auth';
 import Navbar from '../components/layout/Navbar';
 import DeleteProjectButton from '@/app/components/ui/DeleteProjectButton';
+import NewDiagramButton from '../components/ui/NewDiagramButton';
 
 export const dynamic = 'force-dynamic';
 
@@ -46,12 +47,14 @@ export default async function DashboardPage() {
                     </div>
 
                     {/* New Diagram Button */}
-                    <Link
+                    {/* <Link
                         href="/editor/new"
                         className="w-full sm:w-auto text-center bg-brand-blue text-white px-6 py-3 rounded-lg font-bold shadow-md hover:opacity-90 transition-all"
                     >
                         + New Diagram
-                    </Link>
+                    </Link> */}
+
+                    <NewDiagramButton />
                 </div>
 
                 {/* The Grid */}

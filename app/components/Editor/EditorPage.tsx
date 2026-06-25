@@ -100,8 +100,8 @@ function DnDCanvas() {
 
         if (!sourceNode || !targetNode) return false;
 
-        // Prevent self-loops
-        if (sourceNode === targetNode) return false;
+        // Prevent self-loops for attributes only
+        if (sourceNode === targetNode && sourceNode.type != 'entity') return false;
 
         // a simple attribute can have only one edge
         if (sourceNode.type == 'attribute' && sourceNode.data.attributeType == 'simple') {
@@ -182,6 +182,10 @@ function DnDCanvas() {
                 onEdgesChange={onEdgesChange}
                 onConnect={onConnect}
                 onDrop={onDrop}
+
+                deleteKeyCode={['Backspace', 'Delete']}
+                selectionKeyCode={['Control', 'Shift']}
+                proOptions={{ hideAttribution: true }}
 
                 // 🌟 THE MAGIC FIX: Take ONE snapshot the moment they grab the node
                 onNodeDragStart={() => takeSnapshot()}
