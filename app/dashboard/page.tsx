@@ -77,7 +77,7 @@ export default async function DashboardPage() {
 
                                     <div className="mt-4 flex items-center gap-4 text-sm text-muted-foreground transition-colors">
                                         <span className="flex items-center gap-1">
-                                            📦 {diagram._count.nodes} Tables
+                                            📦 {diagram.nodes.filter((node) => node.type == 'entity').length} Tables
                                         </span>
                                     </div>
 
