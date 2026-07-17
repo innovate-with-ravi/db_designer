@@ -45,7 +45,7 @@ const EntityNode = ({ data, id }: any) => {
 
         const PK = nodes.find(n => n.id === id)?.data?.primaryKey as string;
 
-        if ((!PK || PK.length == 0) && allAttrs.length > 0) return true;
+        if ((data.entityType != 'weak') && ((!PK || PK.length == 0) && allAttrs.length > 0)) return true;
 
         // 🌟 THE FIX: Ignore BOTH 'composite' and 'derived' attributes!
         const hasMissingType = allAttrs.some(attr => {

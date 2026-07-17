@@ -21,11 +21,19 @@ export async function getUserDiagrams() {
         userId: session.user.id,
       },
       orderBy: {
-        updatedAt: "desc", // Sorts by newest automatically!
+        updatedAt: "desc",
       },
-      // We don't need the actual nodes here, just the COUNT for the UI card (only for nodes having type == entity)
+      // 🌟 THE FIX: Offload the counting and filtering to the database
       include: {
-        nodes: true,
+        _count: {
+          select: {
+            nodes: {
+              where: {
+                type: "entity",
+              },
+            },
+          },
+        },
       },
     });
 

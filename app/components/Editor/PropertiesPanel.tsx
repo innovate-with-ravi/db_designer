@@ -7,7 +7,7 @@ const requiresSize = (dataType: string) => {
     return ['VARCHAR', 'CHAR', /*'DECIMAL', 'FLOAT', 'DOUBLE'*/].includes(type);
 };
 
-// 🌟 The Professional Data Type List
+// 🌟  Data Type List
 const DATA_TYPES = ['INT', 'VARCHAR', 'CHAR', 'TEXT', 'DATE', 'DATETIME', 'BOOLEAN', 'FLOAT', 'DECIMAL'];
 
 export default function PropertiesPanel() {
@@ -53,7 +53,9 @@ export default function PropertiesPanel() {
     };
 
     const visualAttributes = activeExpandedEntityId ? getAllAttributesForEntity(activeExpandedEntityId) : [];
+
     const hiddenAttributes = (activeEntity?.data?.hiddenAttributes as any[]) || [];
+
     const visualKeyNode = visualAttributes.find(attr => attr?.id === activeEntity?.data.primaryKey);
 
     const validHiddenAttributes = hiddenAttributes.filter(attr =>
@@ -66,6 +68,8 @@ export default function PropertiesPanel() {
         if (!nodes.some((n) => n.id == activeExpandedEntityId))
             setEntityExpanded(null)
     }, [activeExpandedEntityId, nodes, setEntityExpanded])
+
+    // console.log("activeEntity:", activeEntity);
 
     return (
         <div className={`w-96 h-full flex-shrink-0 bg-surface shadow-2xl border-l border-surface-border transition-all duration-300 ease-in-out z-40 flex flex-col ${transformClass}`}>
@@ -258,7 +262,7 @@ export default function PropertiesPanel() {
                                     </div>
 
                                     {/* 🌟 NEW: Constraint Checkboxes */}
-                                    <div className="flex items-center gap-4 px-1 mt-1">
+                                    {(activeEntity.data.primaryKey != hiddenAttr.name) && <div className="flex items-center gap-4 px-1 mt-1">
                                         <label className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground hover:text-foreground cursor-pointer transition-colors">
                                             <input type="checkbox" checked={hiddenAttr.isNotNull || false} onChange={(e) => {
                                                 const newArray = [...hiddenAttributes];
@@ -275,7 +279,7 @@ export default function PropertiesPanel() {
                                             }} className="accent-brand-blue rounded-sm" />
                                             Unique
                                         </label>
-                                    </div>
+                                    </div>}
                                 </div>
                             </div>
                         ))}

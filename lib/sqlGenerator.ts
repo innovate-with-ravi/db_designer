@@ -39,12 +39,10 @@ const getPKDetails = (entity: any) => {
 
 // Kahn's Algorithm for Topological Sorting
 const performTopologicalSort = (entities: any[]) => {
-  // instead of storing whole entityNode, just store entityName (save complexity)
-  const adjList = new Map<string, string[]>(); // u_label ->{v1_label, v2_label...}
+  const adjList = new Map<string, string[]>();
   const inDegree = new Map<string, number>();
   const entityMap = new Map<string, any>(); // label -> entityNode
 
-  // 1. Initialize Graph Maps
   entities.forEach((entity) => {
     const name = entity.data.label;
     adjList.set(name, []);
@@ -52,16 +50,11 @@ const performTopologicalSort = (entities: any[]) => {
     entityMap.set(name, entity);
   });
 
-  // 2. Build Dependency Graph (Parent -> Child)
-  // go to each entity(v), see to which entities(u(s)) they are referencing & add u->v
   entities.forEach((entity) => {
-    const childName /*v*/ = entity.data.label;
-
+    const childName = entity.data.label;
     if (entity.foreignKeys) {
       entity.foreignKeys.forEach((fk: any) => {
-        const parentName /*u*/ = fk.referencesTable;
-
-        // Ignore self-referencing to prevent immediate false cycles ((DAG))
+        const parentName = fk.referencesTable;
         if (parentName !== childName && adjList.has(parentName)) {
           adjList.get(parentName)!.push(childName);
           inDegree.set(childName, inDegree.get(childName)! + 1);
@@ -70,19 +63,18 @@ const performTopologicalSort = (entities: any[]) => {
     }
   });
 
-  // 3. Kahn's Algorithm (BFS)
   const queue: string[] = [];
   inDegree.forEach((degree, name) => {
     if (degree === 0) queue.push(name);
   });
 
-  const sortedNames: string[] = []; // topo order
+  const sortedNames: string[] = [];
 
   while (queue.length > 0) {
-    const current = queue.shift()!; //u
+    const current = queue.shift()!;
     sortedNames.push(current);
 
-    const neighbors = adjList.get(current) || []; // v
+    const neighbors = adjList.get(current) || [];
     neighbors.forEach((neighbor) => {
       inDegree.set(neighbor, inDegree.get(neighbor)! - 1);
       if (inDegree.get(neighbor) === 0) {
@@ -91,14 +83,21 @@ const performTopologicalSort = (entities: any[]) => {
     });
   }
 
-  // 4. Handle Circular Dependencies (Fallback for cyclic schemas) => no topo order
-  if (sortedNames.length !== entities.length) {
+  // 🌟 Detect the cycle and attach a flag to the array
+  const hasCycle = sortedNames.length !== entities.length;
+  if (hasCycle) {
     inDegree.forEach((degree, name) => {
+      // add the remaining entities
       if (degree > 0) sortedNames.push(name);
     });
   }
 
-  return sortedNames.map((name) => entityMap.get(name));
+  const sortedEntities = sortedNames.map((name) => entityMap.get(name));
+
+  // Attach the flag directly to the array object (Backward compatible for Prisma)
+  (sortedEntities as any).hasCycle = hasCycle;
+
+  return sortedEntities;
 };
 
 export const preProcessRelationships = (
@@ -314,13 +313,47 @@ export const generateSQL = (
   sqlScript += `-- Dialect: ${dialect === "oracle" ? "Oracle SQL" : "MySQL"}\n\n`;
 
   const processedEntities = preProcessRelationships(compiledEntities, edges);
-  processedEntities.forEach((entity) => {
-    sqlScript += buildTableSQL(entity, dialect);
-  });
+
+  // 🌟 Read the hidden flag attached by the topo-sorter to the processedEntities array's object
+  const hasCycle = (processedEntities as any).hasCycle;
+
+  if (hasCycle) {
+    sqlScript += `-- ⚠️ CIRCULAR DEPENDENCY DETECTED ⚠️\n`;
+    sqlScript += `-- Using 2-Pass Generation: Tables created first, Foreign Keys altered afterwards.\n\n`;
+
+    // PASS 1: Create all tables (Columns only, no Foreign Key Constraints)
+    processedEntities.forEach((entity) => {
+      sqlScript += buildTableSQL(entity, dialect, true);
+    });
+
+    // PASS 2: Append all ALTER TABLE statements
+    sqlScript += `-- ----------------------------------------------------------------------\n`;
+    sqlScript += `-- FOREIGN KEY CONSTRAINTS (ALTER TABLES)\n`;
+    sqlScript += `-- ----------------------------------------------------------------------\n\n`;
+
+    processedEntities.forEach((entity: any) => {
+      if (entity.foreignKeys && entity.foreignKeys.length > 0) {
+        entity.foreignKeys.forEach((fk: any) => {
+          sqlScript += `ALTER TABLE ${entity.data.label}\n`;
+          sqlScript += `    ADD FOREIGN KEY (${fk.name}) REFERENCES ${fk.referencesTable}(${fk.referencesCol});\n\n`;
+        });
+      }
+    });
+  } else {
+    // NO CYCLE: Generate perfectly clean, ordered code in a single pass
+    processedEntities.forEach((entity) => {
+      sqlScript += buildTableSQL(entity, dialect, false);
+    });
+  }
+
   return sqlScript;
 };
 
-const buildTableSQL = (entity: any, dialect: SQLDialect) => {
+const buildTableSQL = (
+  entity: any,
+  dialect: SQLDialect,
+  skipForeignKeys: boolean = false,
+) => {
   let tableScript = `CREATE TABLE ${entity.data.label} (\n`;
   const comments: string[] = [];
   const columnDefinitions: string[] = [];
@@ -345,15 +378,16 @@ const buildTableSQL = (entity: any, dialect: SQLDialect) => {
     const mappedDataType = mapDataType(rawDataType, dialect);
 
     let size = rawAttr.size || rawAttr.data?.size;
-    if (size && !["VARCHAR2", "VARCHAR", "CHAR"].includes(mappedDataType))
-      size = "";
+    // add logic to skip size if mapDataType isn't VARCHAR or CHAR
     if (
-      !size &&
-      (mappedDataType === "VARCHAR2" || mappedDataType === "VARCHAR")
+      mappedDataType != "VARCHAR2" &&
+      mappedDataType != "VARCHAR" &&
+      mappedDataType != "CHAR"
     )
-      size = "255";
-    const sizeStr = size ? `(${size})` : "";
+      size = "";
+    else if (!size) size = "255";
 
+    const sizeStr = size ? `(${size})` : "";
     const isPK =
       entity.data.primaryKey === name || entity.data.primaryKey === rawAttr.id;
     const pkStr =
@@ -378,10 +412,15 @@ const buildTableSQL = (entity: any, dialect: SQLDialect) => {
         size = "255";
       const sizeStr = size ? `(${size})` : "";
 
+      // 🌟 ALWAYS generate the column
       columnDefinitions.push(`    ${fk.name} ${mappedFkType}${sizeStr}`);
-      constraints.push(
-        `    FOREIGN KEY (${fk.name}) REFERENCES ${fk.referencesTable}(${fk.referencesCol})`,
-      );
+
+      // 🌟 ONLY add the constraint if we aren't skipping them
+      if (!skipForeignKeys) {
+        constraints.push(
+          `    FOREIGN KEY (${fk.name}) REFERENCES ${fk.referencesTable}(${fk.referencesCol})`,
+        );
+      }
     });
   }
 
@@ -398,9 +437,7 @@ const buildTableSQL = (entity: any, dialect: SQLDialect) => {
     }
   }
 
-  // 🌟 FORMATTING FIX: Ensuring commas are placed correctly between columns and constraints
   if (comments.length > 0) tableScript += comments.join("\n") + "\n";
-
   let body = columnDefinitions.join(",\n");
 
   if (constraints.length > 0) {
@@ -408,6 +445,5 @@ const buildTableSQL = (entity: any, dialect: SQLDialect) => {
   }
 
   tableScript += body + "\n);\n\n";
-
   return tableScript;
 };
