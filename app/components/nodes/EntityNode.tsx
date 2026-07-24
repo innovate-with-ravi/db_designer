@@ -118,10 +118,10 @@ const EntityNode = ({ data, id }: any) => {
                 )}
 
                 {/* The Ghost Handles */}
-                <Handle type="source" position={Position.Top} id="top" className="w-2 h-2 border-none bg-brand-blue opacity-0 group-hover:opacity-100 transition-opacity" />
-                <Handle type="source" position={Position.Right} id="right" className="w-2 h-2 border-none bg-brand-blue opacity-0 group-hover:opacity-100 transition-opacity" />
-                <Handle type="source" position={Position.Bottom} id="bottom" className="w-2 h-2 border-none bg-brand-blue opacity-0 group-hover:opacity-100 transition-opacity" />
-                <Handle type="source" position={Position.Left} id="left" className="w-2 h-2 border-none bg-brand-blue opacity-0 group-hover:opacity-100 transition-opacity" />
+                <Handle type="source" position={Position.Top} id="top" className="w-5! h-5! border-none bg-brand-blue opacity-0 group-hover:opacity-100 transition-opacity" />
+                <Handle type="source" position={Position.Right} id="right" className="w-5! h-5! border-none bg-brand-blue opacity-0 group-hover:opacity-100 transition-opacity" />
+                <Handle type="source" position={Position.Bottom} id="bottom" className="w-5! h-5! border-none bg-brand-blue opacity-0 group-hover:opacity-100 transition-opacity" />
+                <Handle type="source" position={Position.Left} id="left" className="w-5! h-5! border-none bg-brand-blue opacity-0 group-hover:opacity-100 transition-opacity" />
 
                 {!isEditing ? (
                     <p className='line-clamp-1 text-center px-2'>{label}</p>

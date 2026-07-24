@@ -33,10 +33,12 @@ const AttributeNode = ({ data, id }: any) => {
       onBlur={() => setIsEditing(false)}
       className={`w-28 h-16 rounded-[50%] text-card-foreground transition-colors duration-300 ${dynamicStyles} flex items-center justify-center relative shadow-sm`}
     >
-      <Handle type="source" position={Position.Top} id="top" />
-      <Handle type="source" position={Position.Right} id="right" />
-      <Handle type="source" position={Position.Bottom} id="bottom" />
-      <Handle type="source" position={Position.Left} id="left" />
+
+      {/* Expanded Handles for Attributes */}
+      <Handle type="source" position={Position.Top} id="top" className="!w-3 !h-3 !border-2 !border-background !bg-muted-foreground opacity-30 hover:opacity-100 transition-opacity cursor-crosshair" />
+      <Handle type="source" position={Position.Right} id="right" className="!w-3 !h-3 !border-2 !border-background !bg-muted-foreground opacity-30 hover:opacity-100 transition-opacity cursor-crosshair" />
+      <Handle type="source" position={Position.Bottom} id="bottom" className="!w-3 !h-3 !border-2 !border-background !bg-muted-foreground opacity-30 hover:opacity-100 transition-opacity cursor-crosshair" />
+      <Handle type="source" position={Position.Left} id="left" className="!w-3 !h-3 !border-2 !border-background !bg-muted-foreground opacity-30 hover:opacity-100 transition-opacity cursor-crosshair" />
 
       {!isEditing ? (
         <p className={`line-clamp-1 text-center px-2 ${data.attributeType === 'composite' ? 'italic font-semibold' : ''}`}>{label}</p>

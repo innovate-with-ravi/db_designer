@@ -100,6 +100,12 @@ const performTopologicalSort = (entities: any[]) => {
   return sortedEntities;
 };
 
+/**
+ * 
+ * @param compiledEntities 
+ * @param edges 
+ * @returns just 
+ */
 export const preProcessRelationships = (
   compiledEntities: any[],
   edges: any[],
