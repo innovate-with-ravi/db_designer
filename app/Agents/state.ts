@@ -1,5 +1,5 @@
-import { StateSchema, ReducedValue } from "@langchain/langgraph";
-import * as z from "zod";
+import { ReducedValue, StateSchema } from "@langchain/langgraph";
+import z from "zod";
 import { AgentDiagramSchema } from "./schemas";
 
 export const AgentState = new StateSchema({
@@ -10,12 +10,14 @@ export const AgentState = new StateSchema({
   jsonSchema: z.custom<z.infer<typeof AgentDiagramSchema>>().nullable(),
 
   // Reducer for appending schema errors instead of overwriting them
-  schemaErrors: new ReducedValue(
+  schemaErrors /*(errorsAtOneCall[])[]*/: new ReducedValue(
     z.array(z.string()).default(() => []),
     {
       reducer: (left: string[], right: string[]) => left.concat(right),
     },
   ),
+
+  isSchemaValid: z.boolean().default(false),
 
   // Phase 2: Compilation & Semantic Naming
   generatedSql: z.string().nullable(),
