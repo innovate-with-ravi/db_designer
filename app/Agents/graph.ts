@@ -50,26 +50,22 @@ const criticNode = async (state: typeof AgentState.State) => {
   const newErrors: string[] = [];
 
   // ==========================================
-  // 1. ZOD VALIDATION (Catches V-1 refine rules)
+  // 1. ZOD VALIDATION (Native Error Formatting)
   // ==========================================
-  // We run safeParse to trigger all your custom .refine() checks
   const parsed = AgentDiagramSchema.safeParse(rawSchema);
 
-  // it's wrong-> see the official docs to handle & provide erros gracefully to LLM!
   if (!parsed.success) {
-    // Extract the highly specific Zod errors and feed them back to the LLM
-    console.log(`parsed.error: ${JSON.stringify(parsed.error, null, 2)}`);
+    // 🌟 THE FIX: Using Zod's native prettifyError for optimal LLM context
+    const prettyErrors = z.prettifyError(parsed.error);
 
-    parsed.error.issues.forEach((err) => {
-      const fieldPath = err.path.join(".");
-      newErrors.push(`Format Error at [${fieldPath}]: ${err.message}`);
-    });
+    // We push this as a single, highly readable block for the LLM prompt
+    newErrors.push(`Schema Format Errors:\n${prettyErrors}`);
   }
 
   // ==========================================
   // 2. RELATIONAL VALIDATION (Cross-table logic)
   // ==========================================
-  // Even if Zod fails, we still check relational logic to give the LLM ALL errors at once
+  // We run this even if Zod fails so the LLM gets ALL errors in a single loop iteration.
   const entityNames = new Set(rawSchema.entities.map((e) => e.name));
 
   for (const entity of rawSchema.entities) {
@@ -97,12 +93,19 @@ const criticNode = async (state: typeof AgentState.State) => {
   for (const rel of rawSchema.relationships) {
     if (!entityNames.has(rel.sourceEntity)) {
       newErrors.push(
-        `Relationship Error: Source Entity '${rel.sourceEntity}' does not exist.`,
+        `Relationship Error: Source Entity '${rel.sourceEntity}' does not exist. Did you mean to connect it to an existing table?`,
       );
     }
     if (!entityNames.has(rel.targetEntity)) {
       newErrors.push(
-        `Relationship Error: Target Entity '${rel.targetEntity}' does not exist.`,
+        `Relationship Error: Target Entity '${rel.targetEntity}' does not exist. Did you mean to connect it to an existing table?`,
+      );
+    }
+
+    // Optional but recommended: Prevent self-referencing relationship loops if not supported by your UI
+    if (rel.sourceEntity === rel.targetEntity) {
+      newErrors.push(
+        `Relationship Error: Entity '${rel.sourceEntity}' cannot have a relationship with itself in this canvas setup.`,
       );
     }
   }
