@@ -1,21 +1,14 @@
 import { StateGraph, START, END } from "@langchain/langgraph";
-import { ChatOpenAI } from "@langchain/openai";
+import { getResilientStructuredModel } from "./model";
 import { AgentState } from "./state";
-import { AgentDiagramSchema } from "./schemas";
+import { AgentDiagramSchema, AgentDiagramSchemaBase } from "./schemas";
 import z from "zod";
 
 // 1. The Generator Node
 const generateNode = async (state: typeof AgentState.State) => {
   console.log(`[Node] generateNode running...`);
 
-  const llm = new ChatOpenAI({
-    model: String(process.env.AI_MODEL),
-    configuration: { baseURL: process.env.AI_ENDPOINT },
-    apiKey: String(process.env.AI_API_KEY),
-    temperature: 0,
-  });
-
-  const structuredLlm = llm.withStructuredOutput(AgentDiagramSchema);
+  const structuredLlm = getResilientStructuredModel(AgentDiagramSchemaBase);
 
   let prompt = `You are a senior database architect. Generate a logical ER diagram for this scenario: "${state.scenario}".`;
 
@@ -38,6 +31,7 @@ const generateNode = async (state: typeof AgentState.State) => {
 
 // 2. The Critic Node
 const criticNode = async (state: typeof AgentState.State) => {
+  console.log(`[criticNode] Checking jsonSchema.`);
   const rawSchema = state.jsonSchema;
 
   if (!rawSchema) {

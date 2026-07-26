@@ -4,41 +4,26 @@
 import { z } from "zod";
 import { SQL_RESERVED_WORDS } from "@/lib/schema";
 
-export const AgentAttributeSchema = z.object({
-  name: z.string().describe("Column name. Must be snake_case, e.g., user_id or first_name"),
-  dataType: z.string().describe("Standard SQL data type (e.g., INT, VARCHAR, DATE, BOOLEAN)").default('INT'),
-  size: z.string().optional().describe("Size for VARCHAR or CHAR types, e.g., '255'"),
-  attributeType: z.enum(["simple", "composite", "derived", "multivalued"]).default("simple"),
-  // 🌟 THE FIX: Composite Primary Key Support
-  isPrimaryKey: z.boolean().default(false).describe("Set to true if this attribute is part of the primary key(maybe composite)."),
-  isNotNull: z.boolean().default(false).describe("Set to true if this attribute is not part of the primary key and still needs to have a value i.e. can't be null."),
-  isUnique: z.boolean().default(false).describe("Set to true if this attribute is not part of the primary key and still must be unique."),
-})
-// attr's name must not be an SQL_RESERVED_WORD
-.refine((attr) => !SQL_RESERVED_WORDS.has(attr.name.toUpperCase()), {
-  message: "Attribute Name cannot be an SQL reserved keyword",
-  path: ["name"],
-})
-.refine((attr) => {
-  if (attr.attributeType === "composite") return true;
-  const dataType = attr.dataType.toUpperCase();
-  if ((dataType === "VARCHAR" || dataType === "CHAR") && (!attr.size || attr.size.trim() === "")) {
-    return false;
-  }
-  return true;
-}, { message: "VARCHAR/CHAR requires a size", path: ["size"] });
+// ==========================================
+// 1. BASE SCHEMAS (Purely Structural for LLM)
+// ==========================================
 
-export const AgentEntitySchema = z.object({
-  name: z.string().describe("Entity/Table name. MUST be a singular noun and UPPERCASE, e.g., STUDENT"),
-  attributes: z.array(AgentAttributeSchema).min(1, "Entity must have at least one attribute"),
-})
-.refine((entity) => !SQL_RESERVED_WORDS.has(entity.name.toUpperCase()), {
-  message: "Entity Name cannot be an SQL reserved keyword",
-  path: ["name"],
+export const AgentAttributeSchemaBase = z.object({
+  name: z.string().describe("Column name. Must be snake_case, e.g., user_id or first_name"),
+  dataType: z.string().describe("Standard SQL data type (e.g., INT, VARCHAR, DATE, BOOLEAN)"),
+  size: z.string().nullable().describe("Size for VARCHAR or CHAR types, e.g., '255'"),
+  attributeType: z.enum(["simple", "composite", "derived", "multivalued"]),
+  isPrimaryKey: z.boolean().describe("Set to true if this attribute is part of the primary key(maybe composite)."),
+  isNotNull: z.boolean().describe("Set to true if this attribute is not part of the primary key and still needs to have a value i.e. can't be null."),
+  isUnique: z.boolean().describe("Set to true if this attribute is not part of the primary key and still must be unique."),
 });
 
-// 🌟 NEW FOR V2: We must teach the LLM how to connect the entities
-export const AgentRelationshipSchema = z.object({
+export const AgentEntitySchemaBase = z.object({
+  name: z.string().describe("Entity/Table name. MUST be a singular noun and UPPERCASE, e.g., STUDENT"),
+  attributes: z.array(AgentAttributeSchemaBase).min(1, "Entity must have at least one attribute"),
+});
+
+export const AgentRelationshipSchemaBase = z.object({
   sourceEntity: z.string().describe("Name of the source/parent entity (must exactly match an entity name)"),
   targetEntity: z.string().describe("Name of the target/child entity (must exactly match an entity name)"),
   label: z.string().describe("Verb describing the relationship, e.g., TEACHES, ENROLLS"),
@@ -46,7 +31,39 @@ export const AgentRelationshipSchema = z.object({
   minCardinality: z.enum(["0:1", "1:0", "1:1"]).describe("The minimum cardinality of the relationship"),
 });
 
-// The final schema the LLM will output
+export const AgentDiagramSchemaBase = z.object({
+  entities: z.array(AgentEntitySchemaBase),
+  relationships: z.array(AgentRelationshipSchemaBase),
+});
+
+// ==========================================
+// 2. VALIDATION SCHEMAS (Strict Rules for Critic)
+// ==========================================
+
+export const AgentAttributeSchema = AgentAttributeSchemaBase
+  .refine((attr) => !SQL_RESERVED_WORDS.has(attr.name.toUpperCase()), {
+    message: "Attribute Name cannot be an SQL reserved keyword",
+    path: ["name"],
+  })
+  .refine((attr) => {
+    if (attr.attributeType === "composite") return true;
+    const dataType = attr.dataType.toUpperCase();
+    if ((dataType === "VARCHAR" || dataType === "CHAR") && (!attr.size || attr.size.trim() === "")) {
+      return false;
+    }
+    return true;
+  }, { message: "VARCHAR/CHAR requires a size", path: ["size"] });
+
+export const AgentEntitySchema = z.object({
+  name: z.string().describe("Entity/Table name. MUST be a singular noun and UPPERCASE, e.g., STUDENT"),
+  attributes: z.array(AgentAttributeSchema).min(1, "Entity must have at least one attribute"),
+}).refine((entity) => !SQL_RESERVED_WORDS.has(entity.name.toUpperCase()), {
+  message: "Entity Name cannot be an SQL reserved keyword",
+  path: ["name"],
+});
+
+export const AgentRelationshipSchema = AgentRelationshipSchemaBase;
+
 export const AgentDiagramSchema = z.object({
   entities: z.array(AgentEntitySchema),
   relationships: z.array(AgentRelationshipSchema),
