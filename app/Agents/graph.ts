@@ -31,7 +31,7 @@ const generateNode = async (state: typeof AgentState.State) => {
 
   if (state.schemaErrors.length > 0) {
     prompt += `\n\nWARNING: Your previous attempt failed with these errors. FIX THEM:\n`;
-    prompt += state.schemaErrors.slice(-3).join("\n");
+    prompt += state.schemaErrors.join("\n");
   }
 
   try {
@@ -88,6 +88,7 @@ const schemaCriticNode = async (state: typeof AgentState.State) => {
   // We run this even if Zod fails so the LLM gets ALL errors in a single loop iteration.
   const entityNames = new Set(rawSchema.entities.map((e) => e.name));
 
+  // adds up the errors for a single schemaCritic
   for (const entity of rawSchema.entities) {
     // Check for Primary Keys
     const hasPK = entity.attributes.some((attr) => attr.isPrimaryKey);
@@ -133,13 +134,18 @@ const schemaCriticNode = async (state: typeof AgentState.State) => {
   // ==========================================
   // 3. FINAL ROUTING DECISION
   // ==========================================
+
+  // no Errors generated in this schemaCritic execution
   if (newErrors.length === 0) {
+    /*schemaFixRetries stays same*/
     return { isSchemaValid: true, schemaErrors: [] };
   }
 
+  // erros generated in this schemaCritic execution
   return {
     schemaErrors: newErrors,
     isSchemaValid: false,
+    schemaFixRetries: state.schemaFixRetries + 1,
   };
 };
 
@@ -154,19 +160,20 @@ const schemaCriticNode = async (state: typeof AgentState.State) => {
  */
 const routeAfterschemaCritic = (state: typeof AgentState.State) => {
   if (state.isSchemaValid) {
-    console.log(`[Router] Schema valid. Routing to END.`);
+    console.log(`[SchemaRouter] Schema valid. Routing to END.`);
     return "compile";
   }
 
   // THE CIRCUIT BREAKER: Stop the infinite loop if we've failed 3 times
-  if (state.schemaErrors.length >= 3) {
+  if (state.schemaFixRetries >= 3) {
     console.warn(
-      `[Router] Circuit Breaker triggered. Max retries hit. Routing to END.`,
+      `[SchemaRouter] Circuit Breaker triggered. Max retries hit. Routing to END.`,
     );
     return END;
   }
 
-  console.log(`[Router] Schema invalid. Routing back to generator.`);
+  // less than 3 retries => try generating schema again
+  console.log(`[SchemaRouter] Schema invalid. Routing back to generator.`);
   return "generator";
 };
 
@@ -392,6 +399,9 @@ Return your assessment matching the requested JSON schema.`;
     return {
       isScriptValid: response.isValid,
       scriptErrors: response.errors,
+      scriptFixRetries: response.isValid
+        ? state.scriptFixRetries
+        : state.scriptFixRetries + 1,
     };
   } catch (error: any) {
     console.error(`[scriptCriticNode Error] LLM failure:`, error.message);
@@ -399,7 +409,6 @@ Return your assessment matching the requested JSON schema.`;
     return {
       isScriptValid: true,
       scriptErrors: [],
-      timesV1SqlPassed: state.timesV1SqlPassed + 1,
     };
   }
 };
@@ -416,15 +425,15 @@ const routeAfterScriptCritic = (state: typeof AgentState.State) => {
     return END;
   }
 
-  // scriptErrors.length can be more than 3 even for the first time bcz. llm from scriptCriticNode can give multiple errors
-  if (state.timesV1SqlPassed >= 3) {
+  // circuit breaker checks the number of times we looped back to the fixer
+  if (state.scriptFixRetries >= 3) {
     console.warn(
-      `[ScriptRouter] Script Circuit Breaker triggered. Max retries(3 time V1 Sql passed) hit. Routing to END.`,
+      `[ScriptRouter] Script Circuit Breaker triggered. Max retries(3) hit. Routing to END.`,
     );
     return END;
   }
-
-  console.log(`[Router] Script invalid. Routing back to scriptFixer.`);
+  
+  console.log(`[ScriptRouter] Script invalid. Routing back to scriptFixer.`);
   return "scriptFixer";
 };
 

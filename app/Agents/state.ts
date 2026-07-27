@@ -14,26 +14,17 @@ export const AgentState = new StateSchema({
   // Phase 1: High-level ER Schema
   jsonSchema: z.custom<z.infer<typeof AgentDiagramSchema>>().nullable(),
 
-  // Reducer for appending schema errors instead of overwriting them
-  schemaErrors /*(errorsAtOneCall[])[]*/: new ReducedValue(
-    z.array(z.string()).default(() => []),
-    {
-      reducer: (left: string[], right: string[]) => left.concat(right),
-    },
-  ),
+  schemaErrors: z.array(z.string()).default([]),
+  schemaFixRetries: z.number().default(0),
 
   isSchemaValid: z.boolean().default(false),
 
   // Phase 2: Compilation , Semantic Naming & Script Fixing(correcting)
   generatedSql: z.string().nullable(),
 
-  scriptErrors: new ReducedValue(
-    z.array(z.string()).default(() => []),
-    {
-      reducer: (left: string[], right: string[]) => left.concat(right),
-    },
-  ),
+  scriptErrors: z.array(z.string()).default([]),
+  scriptFixRetries: z.number().default(0),
 
   isScriptValid: z.boolean().default(false),
-  timesV1SqlPassed: z.number().min(0).max(3).default(9),
+  isVersion1Sql: z.boolean().default(false),
 });

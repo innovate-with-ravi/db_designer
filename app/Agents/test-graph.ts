@@ -15,10 +15,12 @@ async function runTest() {
     isSchemaValid: false,
     dialect: null,
     schemaErrors: [],
+    schemaFixRetries: 0,
     generatedSql: null,
     scriptErrors: [],
     isScriptValid: false,
-    timesV1SqlPassed: 0,
+    scriptFixRetries: 0,
+    isVersion1Sql: false,
   };
 
   try {
