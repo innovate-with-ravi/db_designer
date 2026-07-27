@@ -23,11 +23,16 @@ import { traceable } from "langsmith/traceable";
  * @returns Partial state update containing the generated jsonSchema or null on failure
  */
 const generateNode = async (state: typeof AgentState.State) => {
-  console.log(`[Node] generateNode running...`);
+  console.log(
+    `[generateNode] Generating ER diagram (Attempt ${state.schemaFixRetries + 1}/3)...`,
+  );
 
   const structuredLlm = getResilientStructuredModel(AgentDiagramSchemaBase);
 
-  let prompt = `You are a senior database architect. Generate a logical ER diagram for this scenario: "${state.scenario}".`;
+  let prompt = `You are a senior database architect.
+1. First check errors from your previous attempt if any attached below. 
+2. Generate a logical ER diagram for this scenario: "${state.scenario}".
+Return your assessment matching the requested JSON schema.`;
 
   if (state.schemaErrors.length > 0) {
     prompt += `\n\nWARNING: Your previous attempt failed with these errors. FIX THEM:\n`;
@@ -64,6 +69,7 @@ const schemaCriticNode = async (state: typeof AgentState.State) => {
     return {
       schemaErrors: ["Schema generation failed. The LLM returned null."],
       isSchemaValid: false,
+      schemaFixRetries: state.schemaFixRetries + 1,
     };
   }
 
@@ -160,7 +166,7 @@ const schemaCriticNode = async (state: typeof AgentState.State) => {
  */
 const routeAfterschemaCritic = (state: typeof AgentState.State) => {
   if (state.isSchemaValid) {
-    console.log(`[SchemaRouter] Schema valid. Routing to END.`);
+    console.log(`[SchemaRouter] Schema valid. Routing to compilerNode.`);
     return "compile";
   }
 
@@ -261,6 +267,8 @@ const adaptSchemaForV1 = traceable(
  * @returns Partial state update with the generatedSql and any scriptErrors
  */
 const compilerNode = async (state: typeof AgentState.State) => {
+  console.log(`[compilerNode] Compiling jsonSchema into v-1 script`);
+
   const schema = state.jsonSchema;
 
   if (!schema) {
@@ -308,7 +316,7 @@ const compilerNode = async (state: typeof AgentState.State) => {
  * refine the column/variable names into natural conventions.
  * **Does not alter the structural integrity or logic of the SQL.**
  *
- * @param state - The current state containing generatedSql
+ * @param state - The current state containing {generatedSql from v1}
  * @returns Partial state update overwriting generatedSql with the refined version
  */
 const semanticRefinerNode = async (
@@ -318,7 +326,9 @@ const semanticRefinerNode = async (
 
   if (!state.generatedSql) {
     return {
-      scriptErrors: ["[SemanticRefiner Error]: No generated SQL to refine."],
+      scriptErrors: [
+        "[SemanticRefiner Error]: No generated SQL from v1 to refine.",
+      ],
     };
   }
 
@@ -349,11 +359,12 @@ ${state.generatedSql}
     return { generatedSql: refinedScript, scriptErrors: [] };
   } catch (error: any) {
     console.error(`[SemanticRefiner Error] LLM failure:`, error.message);
-    // On failure, gracefully fallback to the original generated SQL
+    // On failure, gracefully fallback to the original generated SQL from v-1
     return {
       scriptErrors: [
         `[SemanticRefiner Warning]: Failed to refine script: ${error.message}`,
       ],
+      isVersion1Sql: true,
     };
   }
 };
@@ -376,7 +387,18 @@ const scriptCriticNode = async (
 
   // no generatedSql received!
   if (!state.generatedSql) {
-    return { isScriptValid: false, scriptErrors: ["No SQL script generated."] };
+    return {
+      isScriptValid: false,
+      scriptErrors: ["No SQL script generated."],
+      scriptFixRetries: state.scriptFixRetries + 1,
+    };
+  }
+
+  // version 1 sql is not guaranteed to be correct !!
+  if (state.isVersion1Sql) {
+    console.log(
+      `[scriptCriticNode] Got sql 'without semantic refinement' from version 1 generator`,
+    );
   }
 
   const criticLlm = getResilientStructuredModel(ScriptValidationSchema);
@@ -397,18 +419,20 @@ Return your assessment matching the requested JSON schema.`;
 
     // attach errors provided from llm
     return {
-      isScriptValid: response.isValid,
+      isScriptValid: response.isValid, // may be not valid
       scriptErrors: response.errors,
       scriptFixRetries: response.isValid
         ? state.scriptFixRetries
         : state.scriptFixRetries + 1,
+      isVersion1Sql: false, // response may be valid, then llm made changes to v-1 sql, no v1 sql anymore
     };
   } catch (error: any) {
     console.error(`[scriptCriticNode Error] LLM failure:`, error.message);
-    // On critic failure, assume it's valid to not block the user infinitely i.e. on failure, let the version-1's sql go forward
+    // On critic failure, let the version-1's sql go forward (with or without semantic refinement)
     return {
       isScriptValid: true,
       scriptErrors: [],
+      isVersion1Sql: true,
     };
   }
 };
@@ -425,6 +449,10 @@ const routeAfterScriptCritic = (state: typeof AgentState.State) => {
     return END;
   }
 
+  if (state.isVersion1Sql) {
+    console.log(`[ScriptRouter] Got sql from version 1 generator`);
+  }
+
   // circuit breaker checks the number of times we looped back to the fixer
   if (state.scriptFixRetries >= 3) {
     console.warn(
@@ -432,7 +460,7 @@ const routeAfterScriptCritic = (state: typeof AgentState.State) => {
     );
     return END;
   }
-  
+
   console.log(`[ScriptRouter] Script invalid. Routing back to scriptFixer.`);
   return "scriptFixer";
 };
@@ -451,7 +479,7 @@ const scriptFixerNode = async (
   state: typeof AgentState.State,
 ): Promise<Partial<typeof AgentState.State>> => {
   console.log(
-    `[scriptFixerNode] Fixing compiled SQL script based on criticNode's feedback...`,
+    `[scriptFixerNode] Fixing compiled SQL script based on criticNode's feedback (Attempt ${state.scriptFixRetries + 1}/3)...`,
   );
 
   // auto goes to END if no generateSQL or no scriptErrors
@@ -512,9 +540,10 @@ const workflow = new StateGraph(AgentState)
   .addNode("scriptFixer", scriptFixerNode)
 
   // Define the edges (the flow)
-  .addEdge(START, "generator")
-  .addEdge("generator", "schemaCritic")
-  .addConditionalEdges("schemaCritic", routeAfterschemaCritic)
+  // .addEdge(START, "generator")
+  // .addEdge("generator", "schemaCritic")
+  // .addConditionalEdges("schemaCritic", routeAfterschemaCritic)
+  .addEdge(START, "compile")
   .addEdge("compile", "semanticRefine")
   .addEdge("semanticRefine", "scriptCritic")
   .addConditionalEdges("scriptCritic", routeAfterScriptCritic)

@@ -37,27 +37,42 @@ const groqModel = new ChatOpenAI({
   maxRetries: 0,
 });
 
+// 5. Local Ollama Model (Zero quota limits, runs on your machine)
+const localOllamaModel = new ChatOpenAI({
+  model: "llama3.1",
+  configuration: { baseURL: "http://localhost:11434/v1" }, // Ollama's local OpenAI-compatible endpoint
+  apiKey: "ollama", // Required by the SDK, but Ollama ignores it
+  temperature: 0,
+  maxRetries: 0,
+});
+
 /**
  * 🌟 EXPORT 1: Generic Resilient Model
  * Use this anywhere in your code for standard text/chat generation.
  */
 export const resilientModel = officialOpenAI.withFallbacks({
-  fallbacks: [geminiModel, githubAzureModel, groqModel],
+  fallbacks: [geminiModel, githubAzureModel, groqModel, localOllamaModel],
 });
 
 /**
  * 🌟 EXPORT 2: Structured Resilient Model Factory
  * Use this when you specifically need Zod JSON Schema outputs (like in graph.ts).
  */
-export const getResilientStructuredModel = <T extends z.ZodTypeAny>(schema: T) => {
+export const getResilientStructuredModel = <T extends z.ZodTypeAny>(
+  schema: T,
+) => {
   // We apply withStructuredOutput to each model individually BEFORE fallbacks.
   // Why? Because different providers handle JSON schema parsing differently under the hood!
   const primary = officialOpenAI.withStructuredOutput(schema);
+  const fbOllama = localOllamaModel.withStructuredOutput(schema);
   const fb1 = geminiModel.withStructuredOutput(schema);
   const fb2 = githubAzureModel.withStructuredOutput(schema);
-  const fb3 = groqModel.withStructuredOutput(schema, { name: "extract", method: "jsonMode" });
+  const fb3 = groqModel.withStructuredOutput(schema, {
+    name: "extract",
+    method: "jsonMode",
+  });
 
   return primary.withFallbacks({
-    fallbacks: [fb1, fb2, fb3],
+    fallbacks: [fb1, fb2, fb3, fbOllama],
   });
 };
