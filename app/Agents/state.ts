@@ -2,6 +2,7 @@ import { ReducedValue, StateSchema } from "@langchain/langgraph";
 import z from "zod";
 import { AgentDiagramSchema } from "./schemas";
 
+// State for erArchGraph nodes
 export const AgentState = new StateSchema({
   // Input
   scenario: z.string(),
@@ -29,4 +30,6 @@ export const AgentState = new StateSchema({
       reducer: (left: string[], right: string[]) => left.concat(right),
     },
   ),
+
+  isScriptValid: z.boolean().default(false),
 });

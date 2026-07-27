@@ -68,3 +68,12 @@ export const AgentDiagramSchema = z.object({
   entities: z.array(AgentEntitySchema),
   relationships: z.array(AgentRelationshipSchema),
 });
+
+// ==========================================
+// 3. SCRIPT VALIDATION SCHEMA (Phase 3)
+// ==========================================
+
+export const ScriptValidationSchema = z.object({
+  isValid: z.boolean().describe("True if the script syntax is perfect and execution order (e.g., parent tables before child tables) is strictly correct."),
+  errors: z.array(z.string()).describe("Detailed list of SQL/Prisma syntax or logical order errors. Empty array if perfect.")
+});

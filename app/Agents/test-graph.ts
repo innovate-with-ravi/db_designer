@@ -11,8 +11,9 @@ async function runTest() {
   const initialState: typeof AgentState.State = {
     scenario:
       "An e-commerce system with users, products, and orders. An order can have multiple products.",
-    jsonSchema: null,
+    jsonSchema: null,// don't give in lanStudio
     isSchemaValid: false,
+    isScriptValid: false,
     dialect: null,
     schemaErrors: [],
     generatedSql: null,
@@ -24,8 +25,8 @@ async function runTest() {
     const finalState = await erArchitectAgent.invoke(initialState);
 
     console.log("✅ Execution Complete!");
-    console.log("\n=== Final JSON Schema ===");
-    console.log(JSON.stringify(finalState.jsonSchema, null, 2));
+    console.log("\n=== Refined SQL BY semanticRefinerNode ===");
+    console.log(finalState.generatedSql);
 
     if (!finalState.isSchemaValid) {
       console.log("\n⚠️ Schema Errors:");
