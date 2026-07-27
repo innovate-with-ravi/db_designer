@@ -11,13 +11,14 @@ async function runTest() {
   const initialState: typeof AgentState.State = {
     scenario:
       "An e-commerce system with users, products, and orders. An order can have multiple products.",
-    jsonSchema: null,// don't give in lanStudio
+    jsonSchema: null, // don't give in lanStudio
     isSchemaValid: false,
-    isScriptValid: false,
     dialect: null,
     schemaErrors: [],
     generatedSql: null,
     scriptErrors: [],
+    isScriptValid: false,
+    timesV1SqlPassed: 0,
   };
 
   try {

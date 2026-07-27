@@ -6,7 +6,10 @@ import { AgentDiagramSchema } from "./schemas";
 export const AgentState = new StateSchema({
   // Input
   scenario: z.string(),
-  dialect: z.enum(["mysql", "oracle", "prisma"]).describe("The language in which user wants the code.").nullable(),
+  dialect: z
+    .enum(["mysql", "oracle", "prisma"])
+    .describe("The language in which user wants the code.")
+    .nullable(),
 
   // Phase 1: High-level ER Schema
   jsonSchema: z.custom<z.infer<typeof AgentDiagramSchema>>().nullable(),
@@ -21,7 +24,7 @@ export const AgentState = new StateSchema({
 
   isSchemaValid: z.boolean().default(false),
 
-  // Phase 2: Compilation & Semantic Naming
+  // Phase 2: Compilation , Semantic Naming & Script Fixing(correcting)
   generatedSql: z.string().nullable(),
 
   scriptErrors: new ReducedValue(
@@ -32,4 +35,5 @@ export const AgentState = new StateSchema({
   ),
 
   isScriptValid: z.boolean().default(false),
+  timesV1SqlPassed: z.number().min(0).max(3).default(9),
 });

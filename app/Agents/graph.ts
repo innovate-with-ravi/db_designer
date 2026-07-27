@@ -1,7 +1,11 @@
 import { StateGraph, START, END } from "@langchain/langgraph";
 import { getResilientStructuredModel, resilientModel } from "./model";
 import { AgentState } from "./state";
-import { AgentDiagramSchema, AgentDiagramSchemaBase, ScriptValidationSchema } from "./schemas";
+import {
+  AgentDiagramSchema,
+  AgentDiagramSchemaBase,
+  ScriptValidationSchema,
+} from "./schemas";
 import z from "zod";
 import { traceable } from "langsmith/traceable";
 
@@ -311,6 +315,7 @@ const semanticRefinerNode = async (
     };
   }
 
+  // change this prompt acc. to examples from real generated scripts
   let prompt = `You are a strict SQL formatter. Review the following SQL script.
 Your ONLY job is to clean up robotic, repetitive variable and column names (e.g., renaming 'student_student_id' to 'student_id', or 'course_course_id' to 'course_id').
 DO NOT change the data types, relationships, primary keys, or structural logic.
@@ -319,11 +324,6 @@ DO NOT wrap the output in markdown \`\`\` blocks. Output ONLY the pure SQL strin
 SCRIPT TO REFINE:
 ${state.generatedSql}
 `;
-
-  if (state.scriptErrors.length > 0) {
-    prompt += `\n\nWARNING: The script has structural or execution order errors! FIX THEM while maintaining your clean semantic names:\n`;
-    prompt += state.scriptErrors.slice(-3).join("\n");
-  }
 
   try {
     const response = await resilientModel.invoke(prompt);
@@ -354,23 +354,29 @@ ${state.generatedSql}
 // 3. The Script Critic Node
 /**
  * Script Critic Node (Phase 3):
- * A final check to ensure the generated SQL syntax is valid and execution order is correct 
- * (handling cyclic foreign keys). If errors are found, it routes back to the Semantic Refiner.
+ * A final check to ensure the generated SQL syntax is valid and execution order is correct
+ * (handling cyclic foreign keys). If errors are found, it routes to the Script Fixer.
  *
  * @param state - The current state containing generatedSql
  * @returns Partial state update with script validity and any errors
  */
-const scriptCriticNode = async (state: typeof AgentState.State) => {
-  console.log(`[scriptCriticNode] Validating SQL execution order and syntax...`);
+const scriptCriticNode = async (
+  state: typeof AgentState.State,
+): Promise<Partial<typeof AgentState.State>> => {
+  console.log(
+    `[scriptCriticNode] Validating SQL execution order and syntax...`,
+  );
 
+  // no generatedSql received!
   if (!state.generatedSql) {
     return { isScriptValid: false, scriptErrors: ["No SQL script generated."] };
   }
 
   const criticLlm = getResilientStructuredModel(ScriptValidationSchema);
-  
+
+  // fix this to include cyclic dependency & syntax errors
   const prompt = `You are a Database Architect. Review this script for:
-1. Syntax validity (ensure proper ${state.dialect || 'SQL'} syntax).
+1. Syntax validity (ensure proper ${state.dialect || "SQL"} syntax).
 2. Execution Order: Parent tables MUST be created BEFORE child tables that reference them via Foreign Keys.
 
 SCRIPT:
@@ -378,48 +384,123 @@ ${state.generatedSql}
 
 Return your assessment matching the requested JSON schema.`;
 
+  // wrap llm invokation in try-catch
   try {
     const response = await criticLlm.invoke(prompt);
+
+    // attach errors provided from llm
     return {
       isScriptValid: response.isValid,
-      scriptErrors: response.errors
+      scriptErrors: response.errors,
     };
   } catch (error: any) {
     console.error(`[scriptCriticNode Error] LLM failure:`, error.message);
-    // On critic failure, assume it's valid to not block the user infinitely
-    return { isScriptValid: true, scriptErrors: [] };
+    // On critic failure, assume it's valid to not block the user infinitely i.e. on failure, let the version-1's sql go forward
+    return {
+      isScriptValid: true,
+      scriptErrors: [],
+      timesV1SqlPassed: state.timesV1SqlPassed + 1,
+    };
   }
 };
 
 // 4. The Script Router
 /**
  * Router Function for Phase 3:
- * Determines if the script is production-ready or needs to loop back to the Refiner.
+ * Determines if the script is production-ready or needs to loop to the scriptFixer.
  * Includes a circuit breaker to prevent infinite loops (stops after 3 failures).
  */
 const routeAfterScriptCritic = (state: typeof AgentState.State) => {
   if (state.isScriptValid) {
-    console.log(`[Router] Script valid. Routing to END.`);
+    console.log(`[ScriptRouter] Script valid. Routing to END.`);
     return END;
   }
 
-  if (state.scriptErrors.length >= 3) {
-    console.warn(`[Router] Script Circuit Breaker triggered. Max retries hit. Routing to END.`);
+  // scriptErrors.length can be more than 3 even for the first time bcz. llm from scriptCriticNode can give multiple errors
+  if (state.timesV1SqlPassed >= 3) {
+    console.warn(
+      `[ScriptRouter] Script Circuit Breaker triggered. Max retries(3 time V1 Sql passed) hit. Routing to END.`,
+    );
     return END;
   }
 
-  console.log(`[Router] Script invalid. Routing back to semanticRefine.`);
-  return "semanticRefine";
+  console.log(`[Router] Script invalid. Routing back to scriptFixer.`);
+  return "scriptFixer";
 };
 
+// 5. The Script Fixer Node
+/**
+ * Script Fixer Node (Phase 3):
+ * If the Script Critic finds execution order or syntax errors, this node is called.
+ * It takes the broken script and the critic's errors, and uses an LLM to surgically fix them
+ * (e.g., resolving cyclic foreign keys, or fixing typos).
+ *
+ * @param state - The current state containing generatedSql and scriptErrors
+ * @returns Partial state update with the fixed generatedSql
+ */
+const scriptFixerNode = async (
+  state: typeof AgentState.State,
+): Promise<Partial<typeof AgentState.State>> => {
+  console.log(
+    `[scriptFixerNode] Fixing compiled SQL script based on criticNode's feedback...`,
+  );
 
-// 5. Assemble the LangGraph Workflow
+  // auto goes to END if no generateSQL or no scriptErrors
+  if (!state.generatedSql || state.scriptErrors.length === 0) {
+    return {};
+  }
+
+  const prompt = `You are an expert Database Architect and SQL Fixer.
+The following ${state.dialect || "SQL"} script contains structural or execution order errors.
+Your ONLY job is to fix the script so it executes perfectly.
+DO NOT change the semantic names of the tables or columns.
+DO NOT wrap the output in markdown \`\`\` blocks. Output ONLY the pure SQL string.
+
+ERRORS TO FIX:
+${state.scriptErrors.join("\n")}
+
+SCRIPT TO FIX:
+${state.generatedSql}
+`;
+
+  try {
+    const response = await resilientModel.invoke(prompt);
+    let fixedScript = response.content.toString().trim();
+
+    // Clean up potential markdown blocks if the LLM ignores instructions
+    if (fixedScript.startsWith("\`\`\`")) {
+      const lines = fixedScript.split("\n");
+      lines.shift();
+      if (lines[lines.length - 1].startsWith("\`\`\`")) {
+        lines.pop(); // removes last line
+      }
+      fixedScript = lines.join("\n").trim();
+    }
+
+    return { generatedSql: fixedScript, scriptErrors: [] };
+  } catch (error: any) {
+    console.error(`[scriptFixerNode Error] LLM failure:`, error.message);
+    // On failure, return the same script so the circuit breaker eventually kicks in
+    return {
+      scriptErrors: [
+        `[ScriptFixer Warning]: Failed to fix script: ${error.message}`,
+      ],
+    };
+  }
+};
+
+// 6. Assemble the LangGraph Workflow
 const workflow = new StateGraph(AgentState)
   .addNode("generator", generateNode)
-  .addNode("schemaCritic", schemaCriticNode)
+  .addNode("schemaCritic", schemaCriticNode, {
+    ends: ["generator", "compile", END],
+  })
   .addNode("compile", compilerNode)
   .addNode("semanticRefine", semanticRefinerNode)
-  .addNode("scriptCritic", scriptCriticNode)
+  .addNode("scriptCritic", scriptCriticNode, {
+    ends: ["__end__", "scriptFixer"],
+  })
+  .addNode("scriptFixer", scriptFixerNode)
 
   // Define the edges (the flow)
   .addEdge(START, "generator")
@@ -427,7 +508,8 @@ const workflow = new StateGraph(AgentState)
   .addConditionalEdges("schemaCritic", routeAfterschemaCritic)
   .addEdge("compile", "semanticRefine")
   .addEdge("semanticRefine", "scriptCritic")
-  .addConditionalEdges("scriptCritic", routeAfterScriptCritic);
+  .addConditionalEdges("scriptCritic", routeAfterScriptCritic)
+  .addEdge("scriptFixer", "scriptCritic");
 
 // Compile into a runnable agent
 export const erArchitectAgent = workflow.compile();

@@ -75,5 +75,5 @@ export const AgentDiagramSchema = z.object({
 
 export const ScriptValidationSchema = z.object({
   isValid: z.boolean().describe("True if the script syntax is perfect and execution order (e.g., parent tables before child tables) is strictly correct."),
-  errors: z.array(z.string()).describe("Detailed list of SQL/Prisma syntax or logical order errors. Empty array if perfect.")
+  errors: z.array(z.string()).describe("Detailed list of SQL/Prisma syntax or logical order errors. Empty array if perfect.")// need to fix this if we introduce other languages also
 });
