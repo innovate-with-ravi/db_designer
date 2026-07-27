@@ -5,6 +5,7 @@ import { AgentDiagramSchema } from "./schemas";
 export const AgentState = new StateSchema({
   // Input
   scenario: z.string(),
+  dialect: z.enum(["mysql", "oracle", "prisma"]).describe("The language in which user wants the code.").nullable(),
 
   // Phase 1: High-level ER Schema
   jsonSchema: z.custom<z.infer<typeof AgentDiagramSchema>>().nullable(),

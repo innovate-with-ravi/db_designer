@@ -7,8 +7,8 @@ import { compileDiagramState } from "@/lib/compiler";
 import { generateSQL } from "@/lib/sqlGenerator";
 import { generatePrisma } from "@/lib/prismaGenerator";
 import { generateSqlHtml } from "@/action/generateSqlHtml";
-import React from "react";
 import SqlCodeBlock from "./SqlCodeBlock";
+import { Edge } from "@langchain/core/runnables/graph";
 
 export default function ExportModal({ isOpen, onClose }: { isOpen: boolean, onClose: () => void }) {
     const { theme, resolvedTheme } = useTheme();
@@ -32,7 +32,7 @@ export default function ExportModal({ isOpen, onClose }: { isOpen: boolean, onCl
                 if (exportDialect === 'prisma') {
                     finalCode = generatePrisma(compiledEntities, edges);
                 } else {
-                    finalCode = generateSQL(compiledEntities, edges, exportDialect);
+                    finalCode = generateSQL(compiledEntities, (edges as Edge[]), exportDialect);
                 }
 
                 setRawCode(finalCode);

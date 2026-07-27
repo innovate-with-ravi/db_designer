@@ -12,14 +12,14 @@ import Sidebar from '@/app/components/Editor/LeftSidebar';
 import PropertiesPanel from '@/app/components/Editor/PropertiesPanel';
 import RelationshipEdge from '@/app/components/edges/RelationshipEdge';
 
-import { generateSQL } from '@/lib/sqlGenerator';
-import { compileDiagramState } from '@/lib/compiler';
-import { generateSqlHtml } from '@/action/generateSqlHtml';
+// import { generateSQL } from '@/lib/sqlGenerator';
+// import { compileDiagramState } from '@/lib/compiler';
+// import { generateSqlHtml } from '@/action/generateSqlHtml';
 
 import ValidationConsole from '@/app/components/Editor/ValidationConsole';
 
-import { databaseSchema } from '@/lib/schema';
-import { ValidationError } from '@/store/useDiagramStore';
+// import { databaseSchema } from '@/lib/schema';
+// import { ValidationError } from '@/store/useDiagramStore';
 import EditorHeader from './EditorHeader';
 import { getDiagramById } from '@/action/loadDiagram';
 import { useParams } from 'next/navigation';

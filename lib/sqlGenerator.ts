@@ -1,4 +1,11 @@
 // lib/sqlGenerator.ts
+import { Edge } from "@langchain/core/runnables/graph";
+import { Entity, foreignKey } from "./compiler";
+
+interface processedEntity extends Entity {
+  foreignKeys: foreignKey[],
+  compositePK: string[],
+}
 
 export type SQLDialect = "mysql" | "oracle";
 
@@ -101,23 +108,34 @@ const performTopologicalSort = (entities: any[]) => {
 };
 
 /**
- * 
- * @param compiledEntities 
- * @param edges 
- * @returns just 
+ *
+ * @param compiledEntities
+ * @param edges
+ * @returns processedEntities
+ *  - preProcessRelationships to give semantice names
+ *  - performsTopologicalSort to ensure no cycle dependecy during foreignKeys addition exists
+ *  - adds new junction entities for each M:N relationship
+ *  - handles unary relationships
+ *
+ * @remarks
+ * if cycle exists, it attaches a hasCycle = true to the returned array object of entities `processedEntities`
  */
 export const preProcessRelationships = (
-  compiledEntities: any[],
+  compiledEntities: Entity[],
   edges: any[],
 ) => {
-  let processedEntities = compiledEntities.map((e) => ({
+  let processedEntities: processedEntity[] = compiledEntities.map((e) => ({
     ...e,
     foreignKeys: [],
     compositePK: [],
   }));
+
+  // edges connecting two entities
   const relationshipEdges = edges.filter((e) => e.type === "relationship");
+  // a set to check & give a uniqe junctionName (during binary m:n relnp)
   const usedJunctionNames = new Set<string>();
 
+  // process each relationship edge
   relationshipEdges.forEach((edge) => {
     const sourceNode = processedEntities.find((n) => n.id === edge.source);
     const targetNode = processedEntities.find((n) => n.id === edge.target);
@@ -132,19 +150,21 @@ export const preProcessRelationships = (
 
     if (!sourcePK || !targetPK) return;
 
+    // initial edgeLabel assigned by user
     const edgeLabel =
       edge.data?.label && edge.data.label !== "REL"
         ? String(edge.data.label)
-            .trim()
-            .replace(/[^a-zA-Z0-9_]/g, "")
+          .trim()
+          .replace(/[^a-zA-Z0-9_]/g, "")
         : "";
 
+    // if its a binary M:N relnp -> give a unique junctionName
     if (
       (sourceMax === "M" || sourceMax === "N") &&
       (targetMax === "M" || targetMax === "N")
     ) {
       const relStr = edgeLabel ? `_${edgeLabel}_` : "_";
-      let junctionName = `${sourceNode.data.label}${relStr}${targetNode.data.label}`;
+      let junctionName /*semantic junctionName*/ = `${sourceNode.data.label}${relStr}${targetNode.data.label}`;
 
       let jCounter = 1;
       while (usedJunctionNames.has(junctionName.toUpperCase())) {
@@ -152,31 +172,33 @@ export const preProcessRelationships = (
       }
       usedJunctionNames.add(junctionName.toUpperCase());
 
-      let fk1Name = `${sourceNode.data.label.toLowerCase()}_${sourcePK.name}`;
-      let fk2Name = `${targetNode.data.label.toLowerCase()}_${targetPK.name}`;
+      let fk1Name = `${(sourceNode.data.label as string).toLowerCase()}_${sourcePK.name}`;
+      let fk2Name = `${(targetNode.data.label as string).toLowerCase()}_${targetPK.name}`;
 
       if (fk1Name === fk2Name) {
         fk1Name = `parent_${fk1Name}`;
         fk2Name = `child_${fk2Name}`;
       }
 
+      // a new junction entity is created
       processedEntities.push({
         id: `junction_${edge.id}`,
         data: { label: junctionName.toUpperCase(), primaryKey: "COMPOSITE" },
         attributes: [],
+        position: { x: 0, y: 0 },// dummy (x,y) as this entity isn't shown on graph
         foreignKeys: [
           {
             name: fk1Name,
             dataType: sourcePK.dataType,
             size: sourcePK.size,
-            referencesTable: sourceNode.data.label,
+            referencesTable: (sourceNode.data.label as string),
             referencesCol: sourcePK.name,
           },
           {
             name: fk2Name,
             dataType: targetPK.dataType,
             size: targetPK.size,
-            referencesTable: targetNode.data.label,
+            referencesTable: (targetNode.data.label as string),
             referencesCol: targetPK.name,
           },
         ],
@@ -185,15 +207,14 @@ export const preProcessRelationships = (
       return;
     }
 
+    // handles unary relationships
     if (edge.source === edge.target) {
       const relName = edgeLabel ? edgeLabel.toLowerCase() : "parent";
       let fkName = `${relName}_${sourcePK.name}`;
 
       let counter = 1;
       while (
-        sourceNode.attributes.some(
-          (a: any) => (a.name || a.data?.label) === fkName,
-        ) ||
+        sourceNode.attributes.some((a: any) => (a.name || a.data?.label) === fkName) ||
         sourceNode.foreignKeys.some((fk: any) => fk.name === fkName)
       ) {
         fkName = `${relName}_${sourcePK.name}_${counter++}`;
@@ -203,7 +224,7 @@ export const preProcessRelationships = (
         name: fkName,
         dataType: sourcePK.dataType,
         size: sourcePK.size,
-        referencesTable: sourceNode.data.label,
+        referencesTable: (sourceNode.data.label as string),
         referencesCol: sourcePK.name,
       });
       return;
@@ -266,7 +287,7 @@ export const preProcessRelationships = (
 
       if (rawType === "multivalued") {
         const attrName = attr.name || attr.data?.label || "Value";
-        const parentName = entity.data?.label || "Parent";
+        const parentName = (entity.data?.label as string) || "Parent";
         const childTableName = `${parentName}_${attrName}`;
         const fkName = `${parentName.toLowerCase()}_${pk.name}`;
 
@@ -310,51 +331,13 @@ export const preProcessRelationships = (
   return performTopologicalSort(allEntities);
 };
 
-export const generateSQL = (
-  compiledEntities: any[],
-  edges: any[],
-  dialect: SQLDialect = "mysql",
-) => {
-  let sqlScript = `-- Generated by DB Designer\n`;
-  sqlScript += `-- Dialect: ${dialect === "oracle" ? "Oracle SQL" : "MySQL"}\n\n`;
-
-  const processedEntities = preProcessRelationships(compiledEntities, edges);
-
-  // 🌟 Read the hidden flag attached by the topo-sorter to the processedEntities array's object
-  const hasCycle = (processedEntities as any).hasCycle;
-
-  if (hasCycle) {
-    sqlScript += `-- ⚠️ CIRCULAR DEPENDENCY DETECTED ⚠️\n`;
-    sqlScript += `-- Using 2-Pass Generation: Tables created first, Foreign Keys altered afterwards.\n\n`;
-
-    // PASS 1: Create all tables (Columns only, no Foreign Key Constraints)
-    processedEntities.forEach((entity) => {
-      sqlScript += buildTableSQL(entity, dialect, true);
-    });
-
-    // PASS 2: Append all ALTER TABLE statements
-    sqlScript += `-- ----------------------------------------------------------------------\n`;
-    sqlScript += `-- FOREIGN KEY CONSTRAINTS (ALTER TABLES)\n`;
-    sqlScript += `-- ----------------------------------------------------------------------\n\n`;
-
-    processedEntities.forEach((entity: any) => {
-      if (entity.foreignKeys && entity.foreignKeys.length > 0) {
-        entity.foreignKeys.forEach((fk: any) => {
-          sqlScript += `ALTER TABLE ${entity.data.label}\n`;
-          sqlScript += `    ADD FOREIGN KEY (${fk.name}) REFERENCES ${fk.referencesTable}(${fk.referencesCol});\n\n`;
-        });
-      }
-    });
-  } else {
-    // NO CYCLE: Generate perfectly clean, ordered code in a single pass
-    processedEntities.forEach((entity) => {
-      sqlScript += buildTableSQL(entity, dialect, false);
-    });
-  }
-
-  return sqlScript;
-};
-
+/**
+ *
+ * @param entity
+ * @param dialect the sql dialect: mysql, oracle, prisma
+ * @param skipForeignKeys set it to true, if circular dependecy is detected to add all ForeignKeys later using ALTER command
+ * @returns sql script for a single table/entitye
+ */
 const buildTableSQL = (
   entity: any,
   dialect: SQLDialect,
@@ -452,4 +435,56 @@ const buildTableSQL = (
 
   tableScript += body + "\n);\n\n";
   return tableScript;
+};
+
+/**
+ *
+ * @param compiledEntities
+ * @param edges
+ * @param dialect
+ * @returns
+ */
+export const generateSQL = (
+  compiledEntities: any[],
+  edges: Edge[],
+  dialect: SQLDialect = "mysql",
+) => {
+  let sqlScript = `-- Generated by DB Designer\n`;
+  sqlScript += `-- Dialect: ${dialect === "oracle" ? "Oracle SQL" : "MySQL"}\n\n`;
+
+  const processedEntities = preProcessRelationships(compiledEntities, edges);
+
+  // 🌟 Read the hidden flag attached by the topo-sorter to the processedEntities array's object
+  const hasCycle = (processedEntities as any).hasCycle;
+
+  if (hasCycle) {
+    sqlScript += `-- ⚠️ CIRCULAR DEPENDENCY DETECTED ⚠️\n`;
+    sqlScript += `-- Using 2-Pass Generation: Tables created first, Foreign Keys altered afterwards.\n\n`;
+
+    // PASS 1: Create all tables (Columns only, no Foreign Key Constraints)
+    processedEntities.forEach((entity) => {
+      sqlScript += buildTableSQL(entity, dialect, true);
+    });
+
+    // PASS 2: Append all ALTER TABLE statements
+    sqlScript += `-- ----------------------------------------------------------------------\n`;
+    sqlScript += `-- FOREIGN KEY CONSTRAINTS (ALTER TABLES)\n`;
+    sqlScript += `-- ----------------------------------------------------------------------\n\n`;
+
+    processedEntities.forEach((entity: any) => {
+      if (entity.foreignKeys && entity.foreignKeys.length > 0) {
+        entity.foreignKeys.forEach((fk: any) => {
+          sqlScript += `ALTER TABLE ${entity.data.label}\n`;
+          sqlScript += `    ADD FOREIGN KEY (${fk.name}) REFERENCES ${fk.referencesTable}(${fk.referencesCol});\n\n`;
+        });
+      }
+    });
+  } else {
+    // NO CYCLE: Generate perfectly clean, ordered code in a single pass
+    processedEntities.forEach((entity) => {
+      sqlScript += buildTableSQL(entity, dialect, false);
+    });
+  }
+
+  return sqlScript;
 };

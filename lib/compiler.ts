@@ -1,13 +1,28 @@
 import { Node, Edge } from '@xyflow/react';
 
-export interface Entity extends Node {
-    attributes: Node[];
-    foreignKeys: [];
+export type foreignKey = {
+    name: string,
+    dataType: string,
+    size: number,
+    referencesTable: string,
+    referencesCol: string,
 }
 
-export const compileDiagramState = (nodes: Node[], edges: Edge[]): Entity[] => {
-    let nodeDirectory: Record<string, Node> = {};
-    let compressedEntities: Record<string, Entity> = {};
+export interface Entity extends Node {
+    attributes: Node[];
+    foreignKeys: foreignKey[];
+}
+
+/**
+ * 
+ * @param nodes an array of entities + attributes
+ * @param edges an array of all edges (ent<->ent + attr<->ent)
+ * @returns an array of entities (Entity[]) in which each entity consists of all the attributes[] and foreignKeys[]
+ */
+export const compileDiagramState = (nodes/*entities+attributes*/: Node[], edges: Edge[]): Entity[] => {
+
+    let nodeDirectory: Record<string/*nodeId*/, Node/*nodeObject*/> = {};
+    let compressedEntities: Record<string/*entityId*/, Entity/*nodeObject*/> = {};
 
     // Step 1: Initialize the Maps
     for (const node of nodes) {

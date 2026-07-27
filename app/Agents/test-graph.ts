@@ -2,16 +2,18 @@ import { config } from "dotenv";
 // Load environment variables from .env file
 config();
 import { erArchitectAgent } from "./graph";
+import { AgentState } from "./state";
 
 async function runTest() {
   console.log("🚀 Starting LangGraph execution...");
 
   // The initial state matching your AgentState schema
-  const initialState = {
+  const initialState: typeof AgentState.State = {
     scenario:
       "An e-commerce system with users, products, and orders. An order can have multiple products.",
     jsonSchema: null,
     isSchemaValid: false,
+    dialect: null,
     schemaErrors: [],
     generatedSql: null,
     scriptErrors: [],
