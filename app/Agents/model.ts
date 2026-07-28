@@ -51,7 +51,7 @@ const localOllamaModel = new ChatOpenAI({
  * Use this anywhere in your code for standard text/chat generation.
  */
 export const resilientModel = officialOpenAI.withFallbacks({
-  fallbacks: [geminiModel, githubAzureModel, groqModel, localOllamaModel],
+  fallbacks: [localOllamaModel, geminiModel, githubAzureModel, groqModel],
 });
 
 /**
@@ -73,6 +73,6 @@ export const getResilientStructuredModel = <T extends z.ZodTypeAny>(
   });
 
   return primary.withFallbacks({
-    fallbacks: [fb1, fb2, fb3, fbOllama],
+    fallbacks: [fbOllama, fb1, fb2, fb3],
   });
 };

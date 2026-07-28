@@ -30,14 +30,17 @@ const generateNode = async (state: typeof AgentState.State) => {
   const structuredLlm = getResilientStructuredModel(AgentDiagramSchemaBase);
 
   let prompt = `You are a senior database architect.
-1. First check errors from your previous attempt if any attached below. 
-2. Generate a logical ER diagram for this scenario: "${state.scenario}".
-Return your assessment matching the requested JSON schema.`;
+1. First check errors from your previous attempt if any attached below and fix all of them at once.`;
 
   if (state.schemaErrors.length > 0) {
     prompt += `\n\nWARNING: Your previous attempt failed with these errors. FIX THEM:\n`;
     prompt += state.schemaErrors.join("\n");
   }
+
+  prompt += `
+2. Generate a logical ER diagram for this scenario: "${state.scenario}".
+Return your assessment matching the requested JSON schema.`;
+  console.log(`[generateNode]'s prompt: ${prompt}`);
 
   try {
     const response = await structuredLlm.invoke(prompt);
@@ -529,24 +532,25 @@ ${state.generatedSql}
 // 6. Assemble the LangGraph Workflow
 const workflow = new StateGraph(AgentState)
   .addNode("generator", generateNode)
-  .addNode("schemaCritic", schemaCriticNode, {
-    ends: ["generator", "compile", END],
-  })
+  .addNode("schemaCritic", schemaCriticNode)
   .addNode("compile", compilerNode)
   .addNode("semanticRefine", semanticRefinerNode)
-  .addNode("scriptCritic", scriptCriticNode, {
-    ends: ["__end__", "scriptFixer"],
-  })
+  .addNode("scriptCritic", scriptCriticNode)
   .addNode("scriptFixer", scriptFixerNode)
 
-  // Define the edges (the flow)
-  // .addEdge(START, "generator")
-  // .addEdge("generator", "schemaCritic")
-  // .addConditionalEdges("schemaCritic", routeAfterschemaCritic)
-  .addEdge(START, "compile")
+  .addEdge(START, "generator")
+  .addEdge("generator", "schemaCritic")
+  .addConditionalEdges("schemaCritic", routeAfterschemaCritic, {
+    compile: "compile",
+    generator: "generator",
+    __end__: END,
+  })
   .addEdge("compile", "semanticRefine")
   .addEdge("semanticRefine", "scriptCritic")
-  .addConditionalEdges("scriptCritic", routeAfterScriptCritic)
+  .addConditionalEdges("scriptCritic", routeAfterScriptCritic, {
+    scriptFixer: "scriptFixer",
+    __end__: END,
+  })
   .addEdge("scriptFixer", "scriptCritic");
 
 // Compile into a runnable agent
