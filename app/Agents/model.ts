@@ -1,5 +1,6 @@
 import "dotenv/config";
 import { ChatOpenAI } from "@langchain/openai";
+import { ChatGroq } from "@langchain/groq";
 import { ChatGoogleGenerativeAI } from "@langchain/google-genai";
 import { z } from "zod";
 
@@ -29,9 +30,8 @@ const githubAzureModel = new ChatOpenAI({
 });
 
 // 4. Groq (Blazing fast open-source models)
-const groqModel = new ChatOpenAI({
-  model: "llama3-70b-8192",
-  configuration: { baseURL: "https://api.groq.com/openai/v1" },
+const groqModel = new ChatGroq({
+  model: "llama-3.3-70b-versatile",
   apiKey: process.env.GROQ_API_KEY,
   temperature: 0,
   maxRetries: 0,
@@ -65,10 +65,7 @@ export const getResilientStructuredModel = <T extends z.ZodTypeAny>(
   // Why? Because different providers handle JSON schema parsing differently under the hood!
   const primary = geminiModel.withStructuredOutput(schema);
   // const fbOllama = localOllamaModel.withStructuredOutput(schema);
-  const fb1 = groqModel.withStructuredOutput(schema, {
-    name: "extract",
-    method: "jsonMode",
-  });
+  const fb1 = groqModel.withStructuredOutput(schema);
   const fb2 = githubAzureModel.withStructuredOutput(schema);
   const fb3 = officialOpenAI.withStructuredOutput(schema);
 

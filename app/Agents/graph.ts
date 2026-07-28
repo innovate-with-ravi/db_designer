@@ -472,7 +472,12 @@ WHAT TO LOOK FOR:
 SCRIPT TO REVIEW:
 ${state.generatedSql}
 
-Analyze the script deeply. If it has errors, output them clearly. Return your assessment matching the requested JSON schema perfectly.`;
+Analyze the script deeply. If it has errors, output them clearly. 
+
+CRITICAL SCHEMA ENFORCEMENT:
+You MUST return your assessment matching the requested JSON schema perfectly.
+1. The boolean key MUST be exactly "isValid". Do not use "valid".
+2. The "errors" key MUST be a simple array of plain strings (e.g., ["Missing FK on PURCHASE_ITEMS", "Invalid syntax"]). Do NOT return an array of JSON objects. If there are no errors, return an empty array [].`;
 
   // wrap llm invokation in try-catch
   try {
