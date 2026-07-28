@@ -41,8 +41,8 @@ function DnDCanvas() {
     const { nodes, edges, onNodesChange, onEdgesChange, onConnect, addNode, takeSnapshot } = useDiagramStore();
     const { screenToFlowPosition } = useReactFlow();
 
-    console.log("node:", nodes);
-    console.log("edges:", edges);
+    console.log("attribute[0]:", JSON.stringify(nodes.find((node) => node.type == 'attribute'), null, 2));
+    console.log("edges:", JSON.stringify(edges, null, 2));
 
     // 🌟 1. Grab the global theme for React Flow!
     const { resolvedTheme } = useTheme();
@@ -206,13 +206,13 @@ function DnDCanvas() {
 
 export default function EditorPage({ title }: { title: string }) {
     const params = useParams()
-    const { theme, resolvedTheme } = useTheme()
+    // const { theme, resolvedTheme } = useTheme()
 
     const { nodes, edges, validateDiagram, setEntityExpanded, activeExpandedEntityId, setGlobalErrors, setDiagram, exportDialect } = useDiagramStore();
 
     const { undo, redo, copySelection, cutSelection, pasteSelection } = useDiagramStore();
 
-    const [sqlOutput, setSqlOutput] = useState<{ sql: string, html: string } | null>(null);
+    // const [sqlOutput, setSqlOutput] = useState<{ sql: string, html: string } | null>(null);
 
     const [isHydrating, setIsHydrating] = useState(true);
 
@@ -251,6 +251,8 @@ export default function EditorPage({ title }: { title: string }) {
                         data: isEntityToEntity ? {
                             sourceMaximumCardinality: e.source_cardinality,
                             targetMaximumCardinality: e.target_cardinality,
+                            sourceMinimumCardinality: e.source_cardinality,
+                            targetMinimumCardinality: e.target_cardinality,
                             label: e.label
                         } : undefined
                     };
@@ -345,11 +347,13 @@ export default function EditorPage({ title }: { title: string }) {
 
 
     const [isExportModalOpen, setIsExportModalOpen] = useState(false);
+    const [exportMode, setExportMode] = useState<'canvas' | 'ai'>('canvas');
 
-    const handleExportClick = () => {
-        if (validateDiagram()) {
-            setIsExportModalOpen(true);
-        }
+    const handleExportClick = (mode: 'canvas' | 'ai' = 'canvas') => {
+        if (mode === 'canvas' && !validateDiagram()) return;
+
+        setExportMode(mode);
+        setIsExportModalOpen(true);
     };
 
     // 🌟 Loading Screen Fix
@@ -383,7 +387,14 @@ export default function EditorPage({ title }: { title: string }) {
 
             {/* 🌟 MAIN EDITOR WRAPPER */}
             <div className="hidden md:flex w-screen h-screen flex-col overflow-hidden bg-background transition-colors duration-300">
-                <EditorHeader id={params.id as string} title={title} nodes={nodes} edges={edges} onExportClick={handleExportClick} />
+                <EditorHeader
+                    id={params.id as string}
+                    title={title}
+                    nodes={nodes}
+                    edges={edges}
+                    onExportClick={() => handleExportClick('canvas')}
+                    onAiExportClick={() => handleExportClick('ai')}
+                />
 
                 <ReactFlowProvider>
                     <div className="flex-1 flex overflow-hidden">
@@ -400,7 +411,7 @@ export default function EditorPage({ title }: { title: string }) {
                 </ReactFlowProvider>
 
                 {/* 🌟 The Self-Contained Modal */}
-                <ExportModal isOpen={isExportModalOpen} onClose={() => setIsExportModalOpen(false)} />
+                <ExportModal isOpen={isExportModalOpen} onClose={() => setIsExportModalOpen(false)} mode={exportMode} />
             </div >
         </>
     );

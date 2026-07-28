@@ -63,6 +63,10 @@ interface DiagramState {
   // dialect
   exportDialect: 'mysql' | 'oracle' | 'prisma';
   setExportDialect: (dialect: 'mysql' | 'oracle' | 'prisma') => void;
+
+  // AI Generated SQL
+  aiGeneratedSql: string | null;// move it to db or chache(redis)
+  setAiGeneratedSql: (sql: string | null) => void;
 }
 
 const useDiagramStore = create<DiagramState>((set, get) => ({
@@ -74,6 +78,9 @@ const useDiagramStore = create<DiagramState>((set, get) => ({
 
   exportDialect: 'mysql', // Default
   setExportDialect: (dialect) => set({ exportDialect: dialect }),
+
+  aiGeneratedSql: null,
+  setAiGeneratedSql: (sql) => set({ aiGeneratedSql: sql }),
 
   // 🌟 1. CLIPBOARD STATE
   clipboard: { nodes: [], edges: [] } as { nodes: any[], edges: any[] },
@@ -225,6 +232,7 @@ const useDiagramStore = create<DiagramState>((set, get) => ({
   setActiveErrorNodeId: (id) => set({ activeErrorNodeId: id }),
   setEntityExpanded: (entityId: string | null) => set({ activeExpandedEntityId: entityId }),
 
+  // returns true, if no errors in schema exists
   validateDiagram: () => {
     const { nodes, edges } = get();
     const errors: ValidationError[] = [];

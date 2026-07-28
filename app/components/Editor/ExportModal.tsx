@@ -10,9 +10,9 @@ import { generateSqlHtml } from "@/action/generateSqlHtml";
 import SqlCodeBlock from "./SqlCodeBlock";
 import { Edge } from "@langchain/core/runnables/graph";
 
-export default function ExportModal({ isOpen, onClose }: { isOpen: boolean, onClose: () => void }) {
+export default function ExportModal({ isOpen, onClose, mode = 'canvas' }: { isOpen: boolean, onClose: () => void, mode?: 'canvas' | 'ai' }) {
     const { theme, resolvedTheme } = useTheme();
-    const { nodes, edges, exportDialect, setExportDialect } = useDiagramStore();
+    const { nodes, edges, exportDialect, setExportDialect, aiGeneratedSql } = useDiagramStore();
     const [copied, setCopied] = useState(false);
 
     // Local state to manage the outputs dynamically
@@ -25,14 +25,19 @@ export default function ExportModal({ isOpen, onClose }: { isOpen: boolean, onCl
 
         const generate = async () => {
             setIsGenerating(true);
+            
             try {
-                const compiledEntities = compileDiagramState(nodes, edges);
                 let finalCode = "";
 
-                if (exportDialect === 'prisma') {
-                    finalCode = generatePrisma(compiledEntities, edges);
+                if (mode === 'ai') {
+                    finalCode = aiGeneratedSql || "-- No AI generated SQL found. Did you generate an AI ER diagram first?";
                 } else {
-                    finalCode = generateSQL(compiledEntities, (edges as Edge[]), exportDialect);
+                    const compiledEntities = compileDiagramState(nodes, edges);
+                    if (exportDialect === 'prisma') {
+                        finalCode = generatePrisma(compiledEntities, edges);
+                    } else {
+                        finalCode = generateSQL(compiledEntities, (edges as Edge[]), exportDialect);
+                    }
                 }
 
                 setRawCode(finalCode);
@@ -66,25 +71,29 @@ export default function ExportModal({ isOpen, onClose }: { isOpen: boolean, onCl
                 <div className="px-6 py-4 border-b border-border flex items-center justify-between bg-surface/50">
                     <div className="flex items-center gap-3">
                         <div className="w-8 h-8 rounded-full bg-brand-blue/20 flex items-center justify-center text-brand-blue">
-                            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71" /><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71" /></svg>
+                            {mode === 'ai' ? '✨' : (
+                                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71" /><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71" /></svg>
+                            )}
                         </div>
-                        <h2 className="text-xl font-bold text-foreground tracking-tight">Export Code</h2>
+                        <h2 className="text-xl font-bold text-foreground tracking-tight">{mode === 'ai' ? 'AI Refined SQL' : 'Export Code'}</h2>
                     </div>
 
                     <div className="flex items-center gap-6">
                         {/* Dialect Selector */}
-                        <div className="flex items-center gap-2">
-                            <label className="text-sm font-medium text-muted-foreground hidden sm:block">Format:</label>
-                            <select
-                                value={exportDialect}
-                                onChange={(e) => setExportDialect(e.target.value as any)}
-                                className="bg-surface border border-border text-foreground font-medium text-sm rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-brand-blue cursor-pointer hover:bg-surface-hover transition-colors"
-                            >
-                                <option className="bg-background text-foreground" value="mysql">MySQL</option>
-                                <option className="bg-background text-foreground" value="oracle">Oracle SQL</option>
-                                <option className="bg-background text-foreground" value="prisma">Prisma Schema</option>
-                            </select>
-                        </div>
+                        {mode === 'canvas' && (
+                            <div className="flex items-center gap-2">
+                                <label className="text-sm font-medium text-muted-foreground hidden sm:block">Format:</label>
+                                <select
+                                    value={exportDialect}
+                                    onChange={(e) => setExportDialect(e.target.value as any)}
+                                    className="bg-surface border border-border text-foreground font-medium text-sm rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-brand-blue cursor-pointer hover:bg-surface-hover transition-colors"
+                                >
+                                    <option className="bg-background text-foreground" value="mysql">MySQL</option>
+                                    <option className="bg-background text-foreground" value="oracle">Oracle SQL</option>
+                                    <option className="bg-background text-foreground" value="prisma">Prisma Schema</option>
+                                </select>
+                            </div>
+                        )}
 
                         <div className="h-6 w-px bg-border hidden sm:block" />
 

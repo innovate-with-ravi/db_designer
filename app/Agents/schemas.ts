@@ -38,7 +38,7 @@ export const AgentDiagramSchemaBase = z.object({
 });
 
 // ==========================================
-// 2. VALIDATION SCHEMAS (Strict Rules for Critic)
+// 2. VALIDATION SCHEMAS (Strict Rules for schemaCritic)
 // ==========================================
 
 export const AgentAttributeSchema = AgentAttributeSchemaBase

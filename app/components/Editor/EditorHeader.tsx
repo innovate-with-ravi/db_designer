@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import { useTransition, useEffect, useRef, useState, useMemo } from "react";
 import { useRouter } from 'next/navigation'
@@ -7,21 +7,24 @@ import ThemeToggle from "@/app/components/ThemeToggle";
 
 import { Undo2, Redo2, HelpCircle, X } from 'lucide-react';
 import useDiagramStore from "@/store/useDiagramStore";
+import AiGeneratorModal from './AiGeneratorModal';
 
 type EditorHeaderProps = {
     id: string;
     title: string;
     nodes: any[];
     edges: any[];
-    onExportClick?: () => void;
+    onExportClick: () => void;
+    onAiExportClick: () => void;
 }
 
-export default function EditorHeader({ id, title, nodes, edges, onExportClick }: EditorHeaderProps) {
+export default function EditorHeader({ id, title, nodes, edges, onExportClick, onAiExportClick }: EditorHeaderProps) {
     const [isPending, startTransition] = useTransition();
-    const router = useRouter();
+    // const router = useRouter();
     const [syncStatus, setSyncStatus] = useState<"Saved ✅" | "Unsaved" | "Saving...">("Saved ✅");
 
     const [showTips, setShowTips] = useState(false);
+    const [isAiModalOpen, setIsAiModalOpen] = useState(false);
     const [localTitle, setLocalTitle] = useState(title || "Untitled Diagram");
 
     // 🌟 NEW: The First-Time User Experience (FTUE) Check
@@ -192,6 +195,18 @@ export default function EditorHeader({ id, title, nodes, edges, onExportClick }:
                         </button>
                     </div>
 
+                    <button 
+                        onClick={() => setIsAiModalOpen(true)} 
+                        className="text-sm font-bold px-3 sm:px-4 py-1.5 rounded-full transition-all bg-brand-indigo hover:opacity-90 text-white shadow-md shadow-brand-indigo/20 flex items-center gap-1" 
+                        title="Generate ER Diagram with AI"
+                    >
+                        ✨ AI Generate
+                    </button>
+
+                    <button onClick={onAiExportClick} className="text-sm font-bold px-3 sm:px-4 py-1.5 rounded-full transition-all bg-brand-purple hover:opacity-90 text-white shadow-md shadow-brand-purple/20 flex items-center gap-1" title="Export AI Refined SQL">
+                        ✨ AI Export
+                    </button>
+
                     <button onClick={onExportClick} className="text-sm font-bold px-3 sm:px-4 py-1.5 rounded-full transition-all bg-brand-blue hover:opacity-90 text-white shadow-md shadow-brand-blue/20" title="Export Code">
                         Export
                     </button>
@@ -211,7 +226,6 @@ export default function EditorHeader({ id, title, nodes, edges, onExportClick }:
 
             {showTips && (
                 <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm px-4">
-                    {/* 🌟 UPDATED: Click background to trigger closeTips */}
                     <div className="absolute inset-0" onClick={closeTips} />
 
                     <div className="relative bg-background border border-border shadow-2xl rounded-2xl w-full max-w-lg p-6 sm:p-8 animate-in fade-in zoom-in duration-200">
@@ -221,7 +235,6 @@ export default function EditorHeader({ id, title, nodes, edges, onExportClick }:
                                 <HelpCircle className="text-brand-blue" size={28} />
                                 Canvas Controls
                             </h2>
-                            {/* 🌟 UPDATED: X button triggers closeTips */}
                             <button
                                 onClick={closeTips}
                                 className="p-2 text-muted-foreground hover:text-foreground hover:bg-surface rounded-lg transition-colors"
@@ -265,7 +278,6 @@ export default function EditorHeader({ id, title, nodes, edges, onExportClick }:
                             </div>
                         </div>
 
-                        {/* 🌟 UPDATED: Main button triggers closeTips */}
                         <button
                             onClick={closeTips}
                             className="w-full mt-8 bg-brand-blue text-white text-lg font-bold py-3 rounded-xl shadow-lg hover:opacity-90 hover:shadow-brand-blue/20 transition-all"
@@ -275,6 +287,8 @@ export default function EditorHeader({ id, title, nodes, edges, onExportClick }:
                     </div>
                 </div>
             )}
+
+            <AiGeneratorModal isOpen={isAiModalOpen} onClose={() => setIsAiModalOpen(false)} />
         </>
     );
 }
