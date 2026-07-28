@@ -13,7 +13,7 @@ const officialOpenAI = new ChatOpenAI({
 
 // 2. Gemini (Incredible free tier, great logic capabilities)
 const geminiModel = new ChatGoogleGenerativeAI({
-  model: "gemini-flash-latest",
+  model: "gemini-2.5-flash-lite",
   apiKey: process.env.GEMINI_API_KEY,
   temperature: 0,
   maxRetries: 0,
@@ -30,7 +30,7 @@ const githubAzureModel = new ChatOpenAI({
 
 // 4. Groq (Blazing fast open-source models)
 const groqModel = new ChatOpenAI({
-  model: "llama-3.1-8b-instant",
+  model: "llama3-70b-8192",
   configuration: { baseURL: "https://api.groq.com/openai/v1" },
   apiKey: process.env.GROQ_API_KEY,
   temperature: 0,
@@ -38,20 +38,20 @@ const groqModel = new ChatOpenAI({
 });
 
 // 5. Local Ollama Model (Zero quota limits, runs on your machine)
-const localOllamaModel = new ChatOpenAI({
-  model: "llama3.1",
-  configuration: { baseURL: "http://localhost:11434/v1" }, // Ollama's local OpenAI-compatible endpoint
-  apiKey: "ollama", // Required by the SDK, but Ollama ignores it
-  temperature: 0,
-  maxRetries: 0,
-});
+// const localOllamaModel = new ChatOpenAI({
+//   model: "llama3.1",
+//   configuration: { baseURL: "http://localhost:11434/v1" }, // Ollama's local OpenAI-compatible endpoint
+//   apiKey: "ollama", // Required by the SDK, but Ollama ignores it
+//   temperature: 0,
+//   maxRetries: 0,
+// });
 
 /**
  * 🌟 EXPORT 1: Generic Resilient Model
  * Use this anywhere in your code for standard text/chat generation.
  */
-export const resilientModel = officialOpenAI.withFallbacks({
-  fallbacks: [localOllamaModel, geminiModel, githubAzureModel, groqModel],
+export const resilientModel = geminiModel.withFallbacks({
+  fallbacks: [groqModel, officialOpenAI, githubAzureModel],
 });
 
 /**
@@ -63,16 +63,16 @@ export const getResilientStructuredModel = <T extends z.ZodTypeAny>(
 ) => {
   // We apply withStructuredOutput to each model individually BEFORE fallbacks.
   // Why? Because different providers handle JSON schema parsing differently under the hood!
-  const primary = officialOpenAI.withStructuredOutput(schema);
-  const fbOllama = localOllamaModel.withStructuredOutput(schema);
-  const fb1 = geminiModel.withStructuredOutput(schema);
-  const fb2 = githubAzureModel.withStructuredOutput(schema);
-  const fb3 = groqModel.withStructuredOutput(schema, {
+  const primary = geminiModel.withStructuredOutput(schema);
+  // const fbOllama = localOllamaModel.withStructuredOutput(schema);
+  const fb1 = groqModel.withStructuredOutput(schema, {
     name: "extract",
     method: "jsonMode",
   });
+  const fb2 = githubAzureModel.withStructuredOutput(schema);
+  const fb3 = officialOpenAI.withStructuredOutput(schema);
 
   return primary.withFallbacks({
-    fallbacks: [fbOllama, fb1, fb2, fb3],
+    fallbacks: [fb1, fb2, fb3],
   });
 };

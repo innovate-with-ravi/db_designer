@@ -8,8 +8,9 @@ import { SQL_RESERVED_WORDS } from "@/lib/schema";
 // 1. BASE SCHEMAS (Purely Structural for LLM)
 // ==========================================
 
+// attribute or entity name must not be a SQL_RESERVED_WORD
 export const AgentAttributeSchemaBase = z.object({
-  name: z.string().describe("Column name. Must be snake_case, e.g., user_id or first_name"),
+  name: z.string().describe("Column name. Must be snake_case. DO NOT use SQL reserved keywords like USER, ORDER, or GROUP (use user_id, customer_order, etc.)."),
   dataType: z.string().describe("Standard SQL data type (e.g., INT, VARCHAR, DATE, BOOLEAN)"),
   size: z.string().nullable().describe("Size for VARCHAR or CHAR types, e.g., '255'"),
   attributeType: z.enum(["simple", "composite", "derived", "multivalued"]),
@@ -19,7 +20,7 @@ export const AgentAttributeSchemaBase = z.object({
 });
 
 export const AgentEntitySchemaBase = z.object({
-  name: z.string().describe("Entity/Table name. MUST be a singular noun and UPPERCASE, e.g., STUDENT"),
+  name: z.string().describe("Entity/Table name. MUST be a singular noun and UPPERCASE. DO NOT use SQL reserved keywords like USER, ORDER, or GROUP (use APP_USER, CUSTOMER_ORDER, etc.)."),
   attributes: z.array(AgentAttributeSchemaBase).min(1, "Entity must have at least one attribute"),
 });
 
