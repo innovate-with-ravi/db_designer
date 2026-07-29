@@ -35,10 +35,17 @@ const AttributeNode = ({ data, id }: any) => {
     >
 
       {/* Expanded Handles for Attributes */}
+      {/* SOURCE HANDLES */}
       <Handle type="source" position={Position.Top} id="top" className="!w-3 !h-3 !border-2 !border-background !bg-muted-foreground opacity-30 hover:opacity-100 transition-opacity cursor-crosshair" />
       <Handle type="source" position={Position.Right} id="right" className="!w-3 !h-3 !border-2 !border-background !bg-muted-foreground opacity-30 hover:opacity-100 transition-opacity cursor-crosshair" />
       <Handle type="source" position={Position.Bottom} id="bottom" className="!w-3 !h-3 !border-2 !border-background !bg-muted-foreground opacity-30 hover:opacity-100 transition-opacity cursor-crosshair" />
       <Handle type="source" position={Position.Left} id="left" className="!w-3 !h-3 !border-2 !border-background !bg-muted-foreground opacity-30 hover:opacity-100 transition-opacity cursor-crosshair" />
+      
+      {/* TARGET HANDLES (Overlapping for programmatic connections) */}
+      <Handle type="target" position={Position.Top} id="top" className="!w-3 !h-3 !border-2 !border-background !bg-muted-foreground opacity-30 hover:opacity-100 transition-opacity cursor-crosshair pointer-events-none" />
+      <Handle type="target" position={Position.Right} id="right" className="!w-3 !h-3 !border-2 !border-background !bg-muted-foreground opacity-30 hover:opacity-100 transition-opacity cursor-crosshair pointer-events-none" />
+      <Handle type="target" position={Position.Bottom} id="bottom" className="!w-3 !h-3 !border-2 !border-background !bg-muted-foreground opacity-30 hover:opacity-100 transition-opacity cursor-crosshair pointer-events-none" />
+      <Handle type="target" position={Position.Left} id="left" className="!w-3 !h-3 !border-2 !border-background !bg-muted-foreground opacity-30 hover:opacity-100 transition-opacity cursor-crosshair pointer-events-none" />
 
       {!isEditing ? (
         <p className={`line-clamp-1 text-center px-2 ${data.attributeType === 'composite' ? 'italic font-semibold' : ''}`}>{label}</p>

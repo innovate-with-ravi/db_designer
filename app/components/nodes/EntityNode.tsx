@@ -118,10 +118,17 @@ const EntityNode = ({ data, id }: any) => {
                 )}
 
                 {/* The Ghost Handles */}
+                {/* SOURCE HANDLES */}
                 <Handle type="source" position={Position.Top} id="top" className="w-5! h-5! border-none bg-brand-blue opacity-0 group-hover:opacity-100 transition-opacity" />
                 <Handle type="source" position={Position.Right} id="right" className="w-5! h-5! border-none bg-brand-blue opacity-0 group-hover:opacity-100 transition-opacity" />
                 <Handle type="source" position={Position.Bottom} id="bottom" className="w-5! h-5! border-none bg-brand-blue opacity-0 group-hover:opacity-100 transition-opacity" />
                 <Handle type="source" position={Position.Left} id="left" className="w-5! h-5! border-none bg-brand-blue opacity-0 group-hover:opacity-100 transition-opacity" />
+
+                {/* TARGET HANDLES (Overlapping for programmatic connections) */}
+                <Handle type="target" position={Position.Top} id="top" className="w-5! h-5! border-none bg-brand-blue opacity-0 pointer-events-none" />
+                <Handle type="target" position={Position.Right} id="right" className="w-5! h-5! border-none bg-brand-blue opacity-0 pointer-events-none" />
+                <Handle type="target" position={Position.Bottom} id="bottom" className="w-5! h-5! border-none bg-brand-blue opacity-0 pointer-events-none" />
+                <Handle type="target" position={Position.Left} id="left" className="w-5! h-5! border-none bg-brand-blue opacity-0 pointer-events-none" />
 
                 {!isEditing ? (
                     <p className='line-clamp-1 text-center px-2'>{label}</p>

@@ -5,7 +5,15 @@ import useDiagramStore from '@/store/useDiagramStore';
 // ----------------------------------------------------------------------
 // MATH ENGINE & HELPERS (Kept exactly identical)
 // ----------------------------------------------------------------------
-const getNodeCenter = (node: any) => ({ x: node.position.x + (node.measured?.width || 160) / 2, y: node.position.y + (node.measured?.height || 48) / 2 });
+const getNodeCenter = (node: any) => {
+    // React Flow v12 stores absolute coordinates in internals.positionAbsolute
+    const absX = node.internals?.positionAbsolute?.x ?? node.position?.x ?? 0;
+    const absY = node.internals?.positionAbsolute?.y ?? node.position?.y ?? 0;
+    return {
+        x: absX + (node.measured?.width || 160) / 2,
+        y: absY + (node.measured?.height || 48) / 2
+    };
+};
 
 const getNodeIntersection = (sourceNode: any, targetNode: any) => {
     const sourceCenter = getNodeCenter(sourceNode);

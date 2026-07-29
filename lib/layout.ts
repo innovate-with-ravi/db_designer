@@ -6,7 +6,7 @@ import {
   AgentEntitySchemaBase,
   AgentRelationshipSchemaBase,
 } from "@/app/Agents/schemas";
-import z from "zod";
+import z, { size } from "zod";
 
 type AgentDiagramSchema = z.infer<typeof AgentDiagramSchemaBase>;
 type AgentEntitySchema = z.infer<typeof AgentEntitySchemaBase>;
@@ -188,6 +188,7 @@ export const generateLayout = async (
           dataType: attr.dataType,
           isNotNull: attr.isNotNull || false,
           isUnique: attr.isUnique || false,
+          size: attr.size || "",
           entityType: "standard",
           attributeType: attr.attributeType || "simple",
         },
@@ -397,6 +398,37 @@ export const generateLayout = async (
         x: x_ac - ATTRIBUTE_WIDTH / 2,
         y: y_ac - ATTRIBUTE_HEIGHT / 2,
       };
+
+      // --- PHASE 5: Inject Handles into Internal Edges for this attr ---
+      const internalEdge = initialEdges.find(
+        (e) => e.target === attrNode.id || e.source == attrNode.id,
+      );
+
+      if (internalEdge) {
+        // Normalize angle to -180 to 180 for the handle logic
+        let normalizedAngle = angleDegrees % 360;
+        if (normalizedAngle > 180) {
+          normalizedAngle -= 360;
+        }
+
+        if (normalizedAngle >= -45 && normalizedAngle <= 45) {
+          // Attribute is to the Right of the entity
+          internalEdge.sourceHandle = "right";
+          internalEdge.targetHandle = "left";
+        } else if (normalizedAngle > 45 && normalizedAngle < 135) {
+          // Attribute is Below the entity
+          internalEdge.sourceHandle = "bottom";
+          internalEdge.targetHandle = "top";
+        } else if (normalizedAngle >= 135 || normalizedAngle <= -135) {
+          // Attribute is to the Left of the entity
+          internalEdge.sourceHandle = "left";
+          internalEdge.targetHandle = "right";
+        } else if (normalizedAngle < -45 && normalizedAngle > -135) {
+          // Attribute is Above the entity
+          internalEdge.sourceHandle = "top";
+          internalEdge.targetHandle = "bottom";
+        }
+      }
     });
   });
 
