@@ -13,7 +13,7 @@ export const AgentAttributeSchemaBase = z.object({
   name: z.string().describe("Column name. Must be snake_case. DO NOT use SQL reserved keywords like USER, ORDER, or GROUP (use user_id, customer_order, etc.)."),
   dataType: z.string().describe("Standard SQL data type (e.g., INT, VARCHAR, DATE, BOOLEAN)"),
   size: z.string().nullable().describe("Size for VARCHAR or CHAR types, e.g., '255'"),
-  attributeType: z.enum(["simple", "composite", "derived", "multivalued"]),
+  attributeType: z.enum(["simple", "multivalued", "derived"]).describe("The type of attribute - generally simple, multivalued if it can hold multiple values (eg. phone_no or email of a user), derived is less likely & is only given if this attribute's valude can be derived using some other attribute's value which is attached to same entity(eg. age can be derived from date_of_birth)"),
   isPrimaryKey: z.boolean().describe("Set to true if this attribute is part of the primary key(maybe composite)."),
   isNotNull: z.boolean().describe("Set to true if this attribute is not part of the primary key and still needs to have a value i.e. can't be null."),
   isUnique: z.boolean().describe("Set to true if this attribute is not part of the primary key and still must be unique."),
@@ -47,7 +47,7 @@ export const AgentAttributeSchema = AgentAttributeSchemaBase
     path: ["name"],
   })
   .refine((attr) => {
-    if (attr.attributeType === "composite") return true;
+    // if (attr.attributeType === "composite") return true;
     const dataType = attr.dataType.toUpperCase();
     if ((dataType === "VARCHAR" || dataType === "CHAR") && (!attr.size || attr.size.trim() === "")) {
       return false;

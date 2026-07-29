@@ -1,4 +1,3 @@
-import dagre from "@dagrejs/dagre"; // npm i @dagrejs/dagre
 import { Node, Edge } from "@xyflow/react";
 import {
   AgentAttributeSchemaBase,
@@ -18,36 +17,72 @@ const ENTITY_HEIGHT = 48;
 const ATTRIBUTE_WIDTH = 112;
 const ATTRIBUTE_HEIGHT = 64;
 
-export const generateLayout = (jsonSchema: AgentDiagramSchema) => {
-  const g = new dagre.graphlib.Graph();
-
-  g.setGraph({ rankdir: "LR", ranksep: 100, nodesep: 50 }); // LR layout for beautiful ERDs
-  g.setDefaultEdgeLabel(() => ({}));
-
-  const initialNodes: Node[] = [];
+export const generateLayout = (
+  jsonSchema: AgentDiagramSchema,
+): { nodes: Node[]; edges: Edge[] } => {
+  const initialNodes: Node[] = []; // stores all nodes()
   const initialEdges: Edge[] = [];
 
   const entities = jsonSchema.entities || [];
   const relationships = jsonSchema.relationships || [];
 
-  const pkMap = new Map<string /*entityName*/, string /*pkAttrName*/>();
+  const pkMap = new Map<string, string>(); // entityName -> primaryKeyNodeId
 
-  // map (entities & it's attributes) to initialNodes[]
+  // --- PHASE 1: State Initialization (The React Flow Data Layer) ---
+
+  // 1. Iterate over schema.entities
   entities.forEach((entity: AgentEntitySchema) => {
-    // Generate unique ID based on name to prevent collisions and allow edge linking
-    const entityNodeId = `node-entity-${entity.name}`;
+    const parentId = `parent_${entity.name}`;
+    const entityNodeId = `entity_${entity.name}`;
 
+    // Create Compound Parent Node (Invisible Box)
+    initialNodes.push({
+      id: parentId,
+      type: "invisibleBox",
+      position: { x: 0, y: 0 }, // ELK.js will position this globally in Phase 2
+      data: { label: `Parent-${entity.name}` },
+      style: {
+        width: 500,
+        height: 450,
+        background: "transparent",
+        border: "none",
+        pointerEvents: "none",
+      },
+    });
+
+    // Create Core {{Entity Node}}
+    initialNodes.push({
+      id: entityNodeId,
+      type: "entity",
+      parentId: parentId,
+      extent: "parent", // can't be dragged out of parentBox
+      // Center of 500x450 parent is (250, 225). Entity is 160x48.
+      // Top-Left: x = 250 - (160/2) = 170, y = 225 - (48/2) = 201
+      position: { x: 170, y: 201 },
+      data: {
+        label: entity.name,
+        entityType: "standard",
+        primaryKey: null, // Will update below if there is one (on iterating through attributes of this entity)
+        attributeType: "simple",
+      },
+      measured: { width: ENTITY_WIDTH, height: ENTITY_HEIGHT },
+    });
+
+    // Iterate over attributes
     entity.attributes.forEach((attr: AgentAttributeSchema) => {
-      const attrNodeId = `node-attr-${entity.name}-${attr.name}`;
+      const attrNodeId = `attr_${entity.name}_${attr.name}`;
 
       if (attr.isPrimaryKey) {
         pkMap.set(entity.name, attrNodeId);
       }
 
+      // Create Attribute Node
       initialNodes.push({
         id: attrNodeId,
         type: "attribute",
-        position: { x: 0, y: 0 }, // dummy position
+        parentId: parentId,
+        extent: "parent",
+        position: { x: 0, y: 0 }, // Phase 4 will calculate this dynamically
         data: {
           label: attr.name,
           dataType: attr.dataType,
@@ -59,85 +94,53 @@ export const generateLayout = (jsonSchema: AgentDiagramSchema) => {
         measured: { width: ATTRIBUTE_WIDTH, height: ATTRIBUTE_HEIGHT },
       });
 
-      // Edge from entity to attribute
+      // Create {{Internal Edge}} connecting entity to attribute
       initialEdges.push({
         id: `edge-${entityNodeId}-${attrNodeId}`,
         source: entityNodeId,
         target: attrNodeId,
-        sourceHandle: "right", // LR layout
-        targetHandle: "left",
         type: "default",
-      });
-
-      g.setNode(attrNodeId, {
-        width: ATTRIBUTE_WIDTH,
-        height: ATTRIBUTE_HEIGHT,
+        // sourceHandle and targetHandle will be injected dynamically in Phase 4
       });
     });
 
-    initialNodes.push({
-      id: entityNodeId,
-      type: "entity",
-      position: { x: 0, y: 0 },
-      data: {
-        label: entity.name,
-        entityType: "standard",
-        primaryKey: pkMap.get(entity.name) || null,
-        attributeType: "simple",
-      },
-      measured: { width: ENTITY_WIDTH, height: ENTITY_HEIGHT },
-    });
-
-    g.setNode(entityNodeId, { width: ENTITY_WIDTH, height: ENTITY_HEIGHT });
+    // Update Entity Node with its Primary Key
+    const entityNodeIndex = initialNodes.findIndex(
+      (n) => n.id === entityNodeId,
+    );
+    if (entityNodeIndex !== -1 && pkMap.has(entity.name)) {
+      initialNodes[entityNodeIndex].data.primaryKey = pkMap.get(entity.name);
+    }
   });
 
-  // map relationships to initialEdges[]
+  // 2. Iterate over schema.relationships
+  // external relationship edges
   relationships.forEach((rel: AgentRelationshipSchema, index: number) => {
-    const sourceEntityId = `node-entity-${rel.sourceEntity}`;
+    const sourceId = `entity_${rel.sourceEntity}`;
     const sourceEntity = initialNodes.find(
-      (node) => node.id === sourceEntityId,
+      (node) => node.data.label === rel.sourceEntity,
     );
-    const targetEntityId = `node-entity-${rel.targetEntity}`;
+    const targetId = `entity_${rel.targetEntity}`;
     const targetEntity = initialNodes.find(
-      (node) => node.id === targetEntityId,
+      (node) => node.data.label === rel.targetEntity,
     );
 
+    // external relationship edges
     initialEdges.push({
-      id: `edge-rel-${sourceEntityId}-${targetEntityId}-${index}`, // index to ensure uniqueness if there are multiple relnpEdges b/w two entities
-      source: sourceEntityId,
-      target: targetEntityId,
-      sourceHandle: "right",
-      targetHandle: "left",
+      id: `edge-rel-${sourceId}-${targetId}-${index}`, // -index if there are many relationshipEdges b/w src & tgt
+      source: sourceId,
+      target: targetId,
       type: "relationship",
-      // fix to include min&maxCardinality (also need to fix in v-1, don't know where)
       data: {
-        sourceMaximumCardinality: sourceEntity?.data.maxCardinality,
-        targetMaximumCardinality: targetEntity?.data.maxCardinality,
+        sourceMaximumCardinality:
+          sourceEntity?.data.sourceMaximumCardinality || "1", // Fallback defaults
+        targetMaximumCardinality:
+          targetEntity?.data.sourceMaximumCardinality || "N",
         label: rel.label,
       },
+      // sourceHandle and targetHandle will be injected in Phase 3
     });
   });
 
-  // Provide edges to Dagre
-  initialEdges.forEach((edge) => {
-    g.setEdge(edge.source, edge.target);
-  });
-
-  dagre.layout(g);
-
-  // Apply coordinates (center point of node -> top left corner)
-  const layoutedNodes = initialNodes.map((node) => {
-    // grab positioned node from dagre (g.node(nodeId))
-    const nodeWithPosition = g.node(node.id);
-
-    return {
-      ...node,
-      position: {
-        x: nodeWithPosition.x - (node.measured?.width || 0) / 2,
-        y: nodeWithPosition.y - (node.measured?.height || 0) / 2,
-      },
-    };
-  });
-
-  return { nodes: layoutedNodes, edges: initialEdges };
+  return { nodes: initialNodes, edges: initialEdges };
 };

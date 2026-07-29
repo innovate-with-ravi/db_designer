@@ -11,6 +11,7 @@ import AttributeNode from '@/app/components/nodes/AttributeNode';
 import Sidebar from '@/app/components/Editor/LeftSidebar';
 import PropertiesPanel from '@/app/components/Editor/PropertiesPanel';
 import RelationshipEdge from '@/app/components/edges/RelationshipEdge';
+import InvisibleBoxNode from '@/app/components/nodes/InvisibleBoxNode';
 
 // import { generateSQL } from '@/lib/sqlGenerator';
 // import { compileDiagramState } from '@/lib/compiler';
@@ -29,6 +30,7 @@ import ExportModal from './ExportModal';
 const nodeTypes = {
     entity: EntityNode,
     attribute: AttributeNode,
+    invisibleBox: InvisibleBoxNode,
 };
 
 const edgeTypes = {
