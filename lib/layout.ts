@@ -192,5 +192,74 @@ export const generateLayout = async (
     });
   }
 
+  // --- PHASE 3: The Floating Edge Math (Active Ports Calculation) ---
+
+  const activePorts: Record<string, string[]> = {}; // entityId -> ["left", "right"](active ports array)
+
+  // Initialize activePorts for all entities
+  entities.forEach((entity) => {
+    activePorts[`entity_${entity.name}`] = [];
+  });
+
+  initialEdges.forEach((edge) => {
+    if (edge.type === "relationship") {
+      const sourceEntityId = edge.source;
+      const targetEntityId = edge.target;
+
+      const sourceParentId = sourceEntityId.replace("entity_", "parent_");
+      const targetParentId = targetEntityId.replace("entity_", "parent_");
+
+      const sourceParent = initialNodes.find((n) => n.id === sourceParentId);
+      const targetParent = initialNodes.find((n) => n.id === targetParentId);
+
+      if (sourceParent && targetParent) {
+        // Calculate global centers of the parent boxes
+        const sourceCx = sourceParent.position.x + 250;
+        const sourceCy = sourceParent.position.y + 225;
+        const targetCx = targetParent.position.x + 250;
+        const targetCy = targetParent.position.y + 225;
+
+        // Trigonometric Slope
+        const dx = targetCx - sourceCx;
+        const dy = targetCy - sourceCy;
+        const radians = Math.atan2(dy, dx);
+        const degrees = radians * (180 / Math.PI);
+
+        let sourceHandle = "";
+        let targetHandle = "";
+
+        // Assign Handles based on angle
+        if (degrees >= -45 && degrees <= 45) {
+          // Target is to the right
+          sourceHandle = "right";
+          targetHandle = "left";
+        } else if (degrees > 45 && degrees < 135) {
+          // Target is below
+          sourceHandle = "bottom";
+          targetHandle = "top";
+        } else if (degrees >= 135 || degrees <= -135) {
+          // Target is to the left
+          sourceHandle = "left";
+          targetHandle = "right";
+        } else if (degrees < -45 && degrees > -135) {
+          // Target is above
+          sourceHandle = "top";
+          targetHandle = "bottom";
+        }
+
+        edge.sourceHandle = sourceHandle;
+        edge.targetHandle = targetHandle;
+
+        // Record Active Ports
+        if (!activePorts[sourceEntityId].includes(sourceHandle)) {
+          activePorts[sourceEntityId].push(sourceHandle);
+        }
+        if (!activePorts[targetEntityId].includes(targetHandle)) {
+          activePorts[targetEntityId].push(targetHandle);
+        }
+      }
+    }
+  });
+
   return { nodes: initialNodes, edges: initialEdges };
 };
