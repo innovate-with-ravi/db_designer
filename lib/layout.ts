@@ -282,6 +282,9 @@ export const generateLayout = async (
   if (layoutedGraph.children) {
     layoutedGraph.children.forEach((elkNode) => {
       const nodeIndex = initialNodes.findIndex((n) => n.id === elkNode.id);
+      const entityNodeIndex = initialNodes.findIndex(
+        (n) => n.parentId === elkNode.id,
+      );
 
       if (nodeIndex !== -1) {
         initialNodes[nodeIndex].position = {

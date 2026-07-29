@@ -14,7 +14,7 @@ const officialOpenAI = new ChatOpenAI({
 
 // 2. Gemini (Incredible free tier, great logic capabilities)
 const geminiModel = new ChatGoogleGenerativeAI({
-  model: "gemini-2.5-flash-lite",
+  model: "antigravity-preview-05-2026",
   apiKey: process.env.GEMINI_API_KEY,
   temperature: 0,
   maxRetries: 0,

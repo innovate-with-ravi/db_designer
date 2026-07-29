@@ -5,19 +5,40 @@ import useDiagramStore from '@/store/useDiagramStore';
 // ----------------------------------------------------------------------
 // MATH ENGINE & HELPERS (Kept exactly identical)
 // ----------------------------------------------------------------------
-const getNodeCenter = (node: any) => {
+const getNodeCenter = (node: any, nodes: any[] = []) => {
     // React Flow v12 stores absolute coordinates in internals.positionAbsolute
-    const absX = node.internals?.positionAbsolute?.x ?? node.position?.x ?? 0;
-    const absY = node.internals?.positionAbsolute?.y ?? node.position?.y ?? 0;
+    let absX = node.internals?.positionAbsolute?.x;
+    let absY = node.internals?.positionAbsolute?.y;
+
+    if (absX === undefined || absY === undefined) {
+        absX = node.position?.x ?? 0;
+        absY = node.position?.y ?? 0;
+        let current = node;
+        while (current.parentId) {
+            const parent = nodes.find((n: any) => n.id === current.parentId);
+            if (!parent) break;
+
+            if (parent.internals?.positionAbsolute?.x !== undefined) {
+                absX += parent.internals.positionAbsolute.x;
+                absY += parent.internals.positionAbsolute.y;
+                break;
+            } else {
+                absX += parent.position?.x ?? 0;
+                absY += parent.position?.y ?? 0;
+                current = parent;
+            }
+        }
+    }
+
     return {
         x: absX + (node.measured?.width || 160) / 2,
         y: absY + (node.measured?.height || 48) / 2
     };
 };
 
-const getNodeIntersection = (sourceNode: any, targetNode: any) => {
-    const sourceCenter = getNodeCenter(sourceNode);
-    const targetCenter = getNodeCenter(targetNode);
+const getNodeIntersection = (sourceNode: any, targetNode: any, nodes: any[] = []) => {
+    const sourceCenter = getNodeCenter(sourceNode, nodes);
+    const targetCenter = getNodeCenter(targetNode, nodes);
 
     const w = (sourceNode.measured?.width || 160) / 2;
     const h = (sourceNode.measured?.height || 48) / 2;
@@ -105,7 +126,7 @@ const CardinalityBadge = ({ min, max, nodeX, nodeY, labelX, labelY, onMinClick, 
 // MAIN EDGE COMPONENT
 // ----------------------------------------------------------------------
 export default function RelationshipEdge({ id, source, target, sourceX, sourceY, targetX, targetY, sourcePosition, targetPosition, style = {}, data }: any) {
-    const { updateEdgeData, edges } = useDiagramStore();
+    const { updateEdgeData, edges, nodes } = useDiagramStore();
     const [isEditing, setIsEditing] = useState(false);
     const [showFlip, setShowFlip] = useState(false);
     const [label, setLabel] = useState(data.label)
@@ -133,10 +154,10 @@ export default function RelationshipEdge({ id, source, target, sourceX, sourceY,
     } else {
         if (!sourceNode || !targetNode) return null;
 
-        let startPoint = getNodeIntersection(sourceNode, targetNode);
-        let endPoint = getNodeIntersection(targetNode, sourceNode);
-        const sourceCenter = getNodeCenter(sourceNode);
-        const targetCenter = getNodeCenter(targetNode);
+        let startPoint = getNodeIntersection(sourceNode, targetNode, nodes);
+        let endPoint = getNodeIntersection(targetNode, sourceNode, nodes);
+        const sourceCenter = getNodeCenter(sourceNode, nodes);
+        const targetCenter = getNodeCenter(targetNode, nodes);
 
         const parallelEdges = edges.filter((e: any) => (e.source === source && e.target === target) || (e.source === target && e.target === source));
         const edgeIndex = parallelEdges.findIndex((e: any) => e.id === id);
