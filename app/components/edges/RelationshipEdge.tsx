@@ -195,7 +195,7 @@ export default function RelationshipEdge({ id, source, target, sourceX, sourceY,
 
             <EdgeLabelRenderer>
                 <div
-                    className={hasFocus ? "relative z-10" : "relative z-0"}
+                    className={hasFocus ? "relative z-[1000]" : "relative z-50"}
                     tabIndex={-1}
                     onFocus={() => setHasFocus(true)}
                     onBlur={() => setHasFocus(false)}
@@ -210,7 +210,7 @@ export default function RelationshipEdge({ id, source, target, sourceX, sourceY,
                     </div>
 
                     <div style={{ position: 'absolute', transform: `translate(-50%, -50%) translate(${labelX}px, ${labelY}px)`, pointerEvents: 'all' }}
-                        className="flex items-center justify-center nodrag nopan"
+                        className="flex items-center justify-center nodrag nopan z-20"
                         onMouseOver={() => setShowFlip(true)} onMouseOut={() => setShowFlip(false)}
                     >
                         {/* 🌟 Themed Flip Button */}
