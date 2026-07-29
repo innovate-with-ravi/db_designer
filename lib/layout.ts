@@ -18,6 +18,105 @@ const ENTITY_HEIGHT = 48;
 const ATTRIBUTE_WIDTH = 112;
 const ATTRIBUTE_HEIGHT = 64;
 
+// Helper for Phase 4: Determine angular positions for attributes based on blocked ports
+/**
+ *
+ * @param n no. of attributes = entity.attributes.length
+ * @param activePorts array of activePorts of entity
+ * @returns an array of angles(in degree) where attributes needs to be placed
+ */
+function getAttributeAngles(n: number, activePorts: string[]): number[] {
+  if (n === 0) return [];
+
+  const blocked = {
+    top: activePorts.includes("top"),
+    right: activePorts.includes("right"),
+    bottom: activePorts.includes("bottom"),
+    left: activePorts.includes("left"),
+  };
+  const numBlocked = Object.values(blocked).filter(Boolean /*true*/).length;
+
+  let zones: { start: number; arc: number }[] = [];
+
+  if (numBlocked === 0) {
+    zones = [{ start: 0, arc: 360 }];
+  } else if (numBlocked === 1) {
+    if (blocked.right) zones = [{ start: 90, arc: 180 }];
+    else if (blocked.bottom) zones = [{ start: 180, arc: 180 }];
+    else if (blocked.left) zones = [{ start: 270, arc: 180 }];
+    else if (blocked.top) zones = [{ start: 0, arc: 180 }];
+  } else if (numBlocked === 2) {
+    if (blocked.left && blocked.right) {
+      zones = [
+        { start: 225, arc: 90 },
+        { start: 45, arc: 90 },
+      ];
+    } else if (blocked.top && blocked.bottom) {
+      zones = [
+        { start: 135, arc: 90 },
+        { start: -45, arc: 90 },
+      ];
+    } else if (blocked.top && blocked.right) {
+      zones = [{ start: 45, arc: 180 }];
+    } else if (blocked.right && blocked.bottom) {
+      zones = [{ start: 135, arc: 180 }];
+    } else if (blocked.bottom && blocked.left) {
+      zones = [{ start: -135, arc: 180 }];
+    } else if (blocked.left && blocked.top) {
+      zones = [{ start: -45, arc: 180 }];
+    }
+  } else if (numBlocked === 3) {
+    if (!blocked.left) zones = [{ start: 135, arc: 90 }];
+    else if (!blocked.top) zones = [{ start: 225, arc: 90 }];
+    else if (!blocked.right) zones = [{ start: -45, arc: 90 }];
+    else if (!blocked.bottom) zones = [{ start: 45, arc: 90 }];
+  } else {
+    // 4 blocked ports
+    // Centering a 30° arc on the corners (45°, 135°, 225°, 315°)
+    // So start = corner - 15°
+    zones = [
+      { start: 30, arc: 30 }, // Centers on 45°
+      { start: 120, arc: 30 }, // Centers on 135°
+      { start: 210, arc: 30 }, // Centers on 225°
+      { start: 300, arc: 30 }, // Centers on 315°
+    ];
+  }
+
+  const angles: number[] = [];
+
+  if (numBlocked === 0) {
+    const step = 360 / n;
+    for (let i = 0; i < n; i++) {
+      angles.push(i * step);
+    }
+    return angles;
+  }
+
+  const zoneCounts = new Array(zones.length).fill(0);
+  // equally distribute attrs to each zone!!!
+  for (let i = 0; i < n; i++) {
+    zoneCounts[i % zones.length]++;
+  }
+
+  for (let z = 0; z < zones.length; z++) {
+    const zone = zones[z];
+    const count = zoneCounts[z]; // no. of attrs in this zone
+
+    if (count === 0) continue;
+
+    if (count === 1) {
+      angles.push(zone.start + zone.arc / 2); // place at exact center
+    } else {
+      const step = zone.arc / (count - 1);
+      for (let i = 0; i < count; i++) {
+        angles.push(zone.start + i * step);
+      }
+    }
+  }
+
+  return angles;
+}
+
 export const generateLayout = async (
   jsonSchema: AgentDiagramSchema,
 ): Promise<{ nodes: Node[]; edges: Edge[] }> => {
@@ -259,6 +358,46 @@ export const generateLayout = async (
         }
       }
     }
+  });
+
+  // --- PHASE 4: Micro-Layout (Angular Attribute Injection) ---
+  const R = 180;
+
+  entities.forEach((entity) => {
+    const parentId = `parent_${entity.name}`;
+
+    // {{Relative center}} of the 500x450 parent box
+    const cx = 250;
+    const cy = 225;
+
+    const ports = activePorts[`entity_${entity.name}`] || [];
+
+    // attrNode belonging to this parent
+    const attrNodes = initialNodes.filter(
+      (n) => n.type === "attribute" && n.parentId === parentId,
+    );
+    const n = attrNodes.length;
+
+    if (n === 0) return;
+
+    const angles = getAttributeAngles(n, ports);
+
+    attrNodes.forEach((attrNode, index) => {
+      // It's possible that there are more attributes than angles calculated (only in weird edge cases),
+      // but zoneCounts guarantees angles.length === n.
+      const angleDegrees = angles[index];
+      const angleRadians = angleDegrees * (Math.PI / 180);
+
+      // Calculate Attribute Center
+      const x_ac = cx + R * Math.cos(angleRadians);
+      const y_ac = cy + R * Math.sin(angleRadians);
+
+      // Apply {Top-Left} Offset
+      attrNode.position = {
+        x: x_ac - ATTRIBUTE_WIDTH / 2,
+        y: y_ac - ATTRIBUTE_HEIGHT / 2,
+      };
+    });
   });
 
   return { nodes: initialNodes, edges: initialEdges };
