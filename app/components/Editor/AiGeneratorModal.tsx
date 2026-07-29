@@ -34,7 +34,7 @@ export default function AiGeneratorModal({ isOpen, onClose }: { isOpen: boolean,
             }
 
             // data.jsonSchema and data.generatedSql
-            const { nodes, edges } = generateLayout(data.jsonSchema);
+            const { nodes, edges } = await generateLayout(data.jsonSchema);
 
             // Push layout to Zustand
             setDiagram(nodes, edges);

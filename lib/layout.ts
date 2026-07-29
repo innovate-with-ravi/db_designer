@@ -1,4 +1,5 @@
 import { Node, Edge } from "@xyflow/react";
+import ELK from "elkjs/lib/elk.bundled.js";
 import {
   AgentAttributeSchemaBase,
   AgentDiagramSchemaBase,
@@ -17,9 +18,9 @@ const ENTITY_HEIGHT = 48;
 const ATTRIBUTE_WIDTH = 112;
 const ATTRIBUTE_HEIGHT = 64;
 
-export const generateLayout = (
+export const generateLayout = async (
   jsonSchema: AgentDiagramSchema,
-): { nodes: Node[]; edges: Edge[] } => {
+): Promise<{ nodes: Node[]; edges: Edge[] }> => {
   const initialNodes: Node[] = []; // stores all nodes()
   const initialEdges: Edge[] = [];
 
@@ -141,6 +142,55 @@ export const generateLayout = (
       // sourceHandle and targetHandle will be injected in Phase 3
     });
   });
+
+  // --- PHASE 2: Macro-Layout (Global Routing via ELK.js) ---
+
+  const elk = new ELK();
+
+  // 1. Filter the Nodes for ELK (only parent nodes and relationship edges)
+  const elkNodes = initialNodes
+    .filter((n) => n.type === "invisibleBox")
+    .map((n) => ({
+      id: n.id,
+      width: 500,
+      height: 450,
+    }));
+
+  const elkEdges = relationships.map((rel, index) => ({
+    id: `elk-edge-${rel.sourceEntity}-${rel.targetEntity}-${index}`,
+    sources: [`parent_${rel.sourceEntity}`],
+    targets: [`parent_${rel.targetEntity}`],
+  }));
+
+  const elkGraph = {
+    id: "root",
+    layoutOptions: {
+      "elk.algorithm": "layered",
+      "elk.direction": "RIGHT",
+      "elk.edgeRouting": "ORTHOGONAL",
+      "elk.spacing.nodeNode": "150", // i can change to adjust space if needed
+      "elk.layered.spacing.nodeNodeBetweenLayers": "200", // i can change to adjust space if needed
+    },
+    children: elkNodes,
+    edges: elkEdges,
+  };
+
+  // 2. Execute ELK.js
+  const layoutedGraph = await elk.layout(elkGraph);
+
+  // 3. Apply State (i.e. give new positions (x, y))
+  if (layoutedGraph.children) {
+    layoutedGraph.children.forEach((elkNode) => {
+      const nodeIndex = initialNodes.findIndex((n) => n.id === elkNode.id);
+
+      if (nodeIndex !== -1) {
+        initialNodes[nodeIndex].position = {
+          x: elkNode.x || 0,
+          y: elkNode.y || 0,
+        };
+      }
+    });
+  }
 
   return { nodes: initialNodes, edges: initialEdges };
 };
