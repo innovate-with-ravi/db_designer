@@ -42,12 +42,11 @@ export default function EditorHeader({ id, title, nodes, edges, onExportClick, o
     };
 
     const currentPayloadString = useMemo(() => {
-        const cleanNodes = nodes.map(n => ({ 
-            id: n.id, 
-            type: n.type, 
-            position: n.position, 
+        const cleanNodes = nodes.map(n => ({
+            id: n.id,
+            type: n.type,
+            position: n.position,
             data: n.data,
-            
             parentId: n.parentId,
             extent: n.extent,
             measured: n.measured,
@@ -205,9 +204,9 @@ export default function EditorHeader({ id, title, nodes, edges, onExportClick, o
                         </button>
                     </div>
 
-                    <button 
-                        onClick={() => setIsAiModalOpen(true)} 
-                        className="text-sm font-bold px-3 sm:px-4 py-1.5 rounded-full transition-all bg-brand-indigo hover:opacity-90 text-white shadow-md shadow-brand-indigo/20 flex items-center gap-1" 
+                    <button
+                        onClick={() => setIsAiModalOpen(true)}
+                        className="text-sm font-bold px-3 sm:px-4 py-1.5 rounded-full transition-all bg-brand-indigo hover:opacity-90 text-white shadow-md shadow-brand-indigo/20 flex items-center gap-1"
                         title="Generate ER Diagram with AI"
                     >
                         ✨ AI Generate

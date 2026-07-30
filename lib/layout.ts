@@ -266,13 +266,33 @@ export const generateLayout = async (
 
   const elkGraph = {
     id: "root",
+    // ELK configuration
+    /*
+  const layoutOptions = {
+  'elk.algorithm': 'stress', // 'force' also works well for networks
+  'elk.spacing.nodeNode': '200', 
+  // If you MUST use layered, force it to spread out:
+  // 'elk.algorithm': 'layered',
+  // 'elk.direction': 'RIGHT', 
+  // 'elk.aspectRatio': '1.5', // Forces the engine to favor a wider, screen-friendly layout
+};
+    */
+
+    // for simple scenarios
     layoutOptions: {
-      "elk.algorithm": "layered",
-      "elk.direction": "RIGHT",
-      "elk.edgeRouting": "ORTHOGONAL",
-      "elk.spacing.nodeNode": "150", // i can change to adjust space if needed
-      "elk.layered.spacing.nodeNodeBetweenLayers": "200", // i can change to adjust space if needed
+      "elk.algorithm": "stress",
+      // Forces the algorithm to keep the centers of the nodes at least 700px apart!
+      // Since our boxes are 500x450, this guarantees ~200px of clean space between them.
+      "elk.stress.desiredEdgeLength": "700",
+      "elk.spacing.nodeNode": "150",
     },
+    // layoutOptions: {
+    //   "elk.algorithm": "layered",
+    //   "elk.direction": "RIGHT",
+    //   "elk.edgeRouting": "ORTHOGONAL",
+    //   "elk.spacing.nodeNode": "150", // i can change to adjust space if needed
+    //   "elk.layered.spacing.nodeNodeBetweenLayers": "200", // i can change to adjust space if needed
+    // },
     children: elkNodes,
     edges: elkEdges,
   };

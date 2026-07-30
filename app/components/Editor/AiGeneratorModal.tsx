@@ -55,7 +55,7 @@ export default function AiGeneratorModal({ isOpen, onClose }: { isOpen: boolean,
 
     return (
         <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 sm:p-6 animate-in fade-in duration-200">
-            <div className="bg-background border border-border w-full max-w-2xl rounded-2xl shadow-2xl overflow-hidden flex flex-col ring-1 ring-white/10">
+            <div className="bg-background border border-border w-full max-w-4xl rounded-2xl shadow-2xl overflow-hidden flex flex-col ring-1 ring-white/10">
                 <div className="px-6 py-4 border-b border-border flex items-center justify-between bg-surface/50">
                     <div className="flex items-center gap-3">
                         <div className="w-8 h-8 rounded-full bg-brand-indigo/20 flex items-center justify-center text-brand-indigo">
@@ -77,7 +77,7 @@ export default function AiGeneratorModal({ isOpen, onClose }: { isOpen: boolean,
                         Describe the application or database you want to build. Our AI Architect will design the entities, relationships, and layout them automatically.
                     </p>
                     <textarea
-                        className="w-full h-32 bg-surface border border-border rounded-xl p-4 text-foreground focus:ring-2 focus:ring-brand-indigo focus:outline-none resize-none"
+                        className="w-full h-50 max-h-100 bg-surface border border-border rounded-xl p-4 text-foreground focus:ring-2 focus:ring-brand-indigo focus:outline-none resize-both"
                         placeholder="e.g. An e-commerce platform with users, products, categories, orders, and order items. A user can have multiple orders..."
                         value={scenario}
                         onChange={(e) => setScenario(e.target.value)}

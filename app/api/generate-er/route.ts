@@ -29,7 +29,9 @@ export async function POST(request: Request) {
     };
 
     // The LangGraph agent runs its cycles and returns the final state
-    const result = await erArchitectAgent.invoke(initialState);
+    const result = await erArchitectAgent.invoke(initialState, {
+      runName: "MyCustomGraphRun",
+    });
 
     // If it hit circuit breaker and failed, the valid states will be false or null
     if (!result.jsonSchema) {
@@ -49,7 +51,7 @@ export async function POST(request: Request) {
     );
   } catch (error: any) {
     console.error("[Generate ER API Error]:", error);
-    
+
     return NextResponse.json(
       { error: error.message || "Internal Server Error" },
       { status: 500 },
