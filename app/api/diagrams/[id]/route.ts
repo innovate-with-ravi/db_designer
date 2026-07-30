@@ -91,7 +91,8 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
                         label: node.data.label || 'Unnamed',
                         x_pos: node.position.x,
                         y_pos: node.position.y,
-                        node_data_json: node.data,
+                        // store the rf-node's internal data
+                        node_data_json: { ...node.data, /*add this extra info*/_rf: { parentId: node.parentId, extent: node.extent, measured: node.measured, style: node.style } },
                     }))
                 },
                 edges: {

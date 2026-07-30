@@ -42,7 +42,17 @@ export default function EditorHeader({ id, title, nodes, edges, onExportClick, o
     };
 
     const currentPayloadString = useMemo(() => {
-        const cleanNodes = nodes.map(n => ({ id: n.id, type: n.type, position: n.position, data: n.data }));
+        const cleanNodes = nodes.map(n => ({ 
+            id: n.id, 
+            type: n.type, 
+            position: n.position, 
+            data: n.data,
+            
+            parentId: n.parentId,
+            extent: n.extent,
+            measured: n.measured,
+            style: n.style
+        }));
         const cleanEdges = edges.map(e => ({
             id: e.id, source: e.source, target: e.target, sourceHandle: e.sourceHandle, targetHandle: e.targetHandle, type: e.type, data: e.data
         }));

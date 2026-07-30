@@ -231,12 +231,20 @@ export default function EditorPage({ title }: { title: string }) {
             const response = await getDiagramById(diagramId as string);
 
             if (response.success && response.diagram) {
-                const rfNodes = response.diagram.nodes.map((n: any) => ({
-                    id: n.id,
-                    type: n.type,
-                    position: { x: n.x_pos, y: n.y_pos },
-                    data: n.node_data_json
-                }));
+                const rfNodes = response.diagram.nodes.map((n: any) => {
+                    const rfData = n.node_data_json?._rf || {};
+                    const { _rf, ...cleanData } = n.node_data_json;
+                    return {
+                        id: n.id,
+                        type: n.type,
+                        position: { x: n.x_pos, y: n.y_pos },
+                        data: cleanData,
+                        ...(rfData.parentId && { parentId: rfData.parentId }),
+                        ...(rfData.extent && { extent: rfData.extent }),
+                        ...(rfData.measured && { measured: rfData.measured }),
+                        ...(rfData.style && { style: rfData.style })
+                    };
+                });
 
                 const rfEdges = response.diagram.edges.map((e: any) => {
                     const sourceNode = response.diagram.nodes.find((n: any) => n.id === e.source_node);
