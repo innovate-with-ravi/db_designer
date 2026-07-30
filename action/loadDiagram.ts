@@ -71,6 +71,17 @@ export async function getDiagramById(diagramId: string) {
       return { success: false, error: "Diagram not found or access denied." };
     }
 
+    // Fix React Flow "Parent node not found" error on reload.
+    // The DB does not guarantee order, but React Flow requires parents BEFORE children in the nodes array!
+    if (diagram.nodes) {
+      const typeOrder: Record<string, number> = { invisibleBox: 1, entity: 2, attribute: 3 };
+      diagram.nodes.sort((a, b) => {
+        const orderA = typeOrder[a.type] || 99;
+        const orderB = typeOrder[b.type] || 99;
+        return orderA - orderB;
+      });
+    }
+
     return { success: true, diagram };
   } catch (error) {
     console.error("Failed to load diagram:", error);

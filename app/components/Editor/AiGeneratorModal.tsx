@@ -27,6 +27,7 @@ export default function AiGeneratorModal({ isOpen, onClose }: { isOpen: boolean,
                 body: JSON.stringify({ scenario })
             });
 
+            console.log("[AiGeneratorModal] response:", JSON.stringify(response, null, 2));
             const data = await response.json();// data = response body
 
             if (!response.ok) {

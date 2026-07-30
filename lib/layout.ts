@@ -122,6 +122,7 @@ export const generateLayout = async (
 ): Promise<{ nodes: Node[]; edges: Edge[] }> => {
   const initialNodes: Node[] = []; // stores all nodes()
   const initialEdges: Edge[] = [];
+  const genId = Math.random().toString(36).substring(2, 9); // Global unique suffix for this layout
 
   const entities = jsonSchema.entities || [];
   const relationships = jsonSchema.relationships || [];
@@ -132,8 +133,8 @@ export const generateLayout = async (
 
   // 1. Iterate over schema.entities
   entities.forEach((entity: AgentEntitySchema) => {
-    const parentId = `parent_${entity.name}`;
-    const entityNodeId = `entity_${entity.name}`;
+    const parentId = `parent_${entity.name}_${genId}`;
+    const entityNodeId = `entity_${entity.name}_${genId}`;
 
     // Create Compound Parent Node (Invisible Box)
     initialNodes.push({
@@ -169,8 +170,8 @@ export const generateLayout = async (
     });
 
     // Iterate over attributes
-    entity.attributes.forEach((attr: AgentAttributeSchema) => {
-      const attrNodeId = `attr_${entity.name}_${attr.name}`;
+    entity.attributes?.forEach((attr: AgentAttributeSchema) => {
+      const attrNodeId = `attr_${entity.name}_${attr.name}_${genId}`;
 
       if (attr.isPrimaryKey) {
         pkMap.set(entity.name, attrNodeId);
@@ -216,12 +217,13 @@ export const generateLayout = async (
 
   // 2. Iterate over schema.relationships
   // external relationship edges
-  relationships.forEach((rel: AgentRelationshipSchema, index: number) => {
-    const sourceId = `entity_${rel.sourceEntity}`;
+  relationships.forEach((rel, index) => {
+    const sourceId = `entity_${rel.sourceEntity}_${genId}`;
+    const targetId = `entity_${rel.targetEntity}_${genId}`;
+
     const sourceEntity = initialNodes.find(
       (node) => node.data.label === rel.sourceEntity,
     );
-    const targetId = `entity_${rel.targetEntity}`;
     const targetEntity = initialNodes.find(
       (node) => node.data.label === rel.targetEntity,
     );
@@ -257,9 +259,9 @@ export const generateLayout = async (
     }));
 
   const elkEdges = relationships.map((rel, index) => ({
-    id: `elk-edge-${rel.sourceEntity}-${rel.targetEntity}-${index}`,
-    sources: [`parent_${rel.sourceEntity}`],
-    targets: [`parent_${rel.targetEntity}`],
+    id: `elk-edge-${rel.sourceEntity}-${rel.targetEntity}-${index}_${genId}`,
+    sources: [`parent_${rel.sourceEntity}_${genId}`],
+    targets: [`parent_${rel.targetEntity}_${genId}`],
   }));
 
   const elkGraph = {
@@ -282,9 +284,9 @@ export const generateLayout = async (
   if (layoutedGraph.children) {
     layoutedGraph.children.forEach((elkNode) => {
       const nodeIndex = initialNodes.findIndex((n) => n.id === elkNode.id);
-      const entityNodeIndex = initialNodes.findIndex(
-        (n) => n.parentId === elkNode.id,
-      );
+      // const entityNodeIndex = initialNodes.findIndex(
+      //   (n) => n.parentId === elkNode.id,
+      // );
 
       if (nodeIndex !== -1) {
         initialNodes[nodeIndex].position = {
@@ -301,7 +303,7 @@ export const generateLayout = async (
 
   // Initialize activePorts for all entities
   entities.forEach((entity) => {
-    activePorts[`entity_${entity.name}`] = [];
+    activePorts[`entity_${entity.name}_${genId}`] = [];
   });
 
   initialEdges.forEach((edge) => {
@@ -368,13 +370,13 @@ export const generateLayout = async (
   const R = 180;
 
   entities.forEach((entity) => {
-    const parentId = `parent_${entity.name}`;
+    const parentId = `parent_${entity.name}_${genId}`;
 
     // {{Relative center}} of the 500x450 parent box
     const cx = 250;
     const cy = 225;
 
-    const ports = activePorts[`entity_${entity.name}`] || [];
+    const ports = activePorts[`entity_${entity.name}_${genId}`] || [];
 
     // attrNode belonging to this parent
     const attrNodes = initialNodes.filter(
