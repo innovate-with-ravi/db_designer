@@ -3,7 +3,7 @@
 import { useState } from "react";
 import useDiagramStore from "@/store/useDiagramStore";
 import { generateLayout } from "@/lib/layout";
-import { usePathname } from 'next/navigation'
+import { useParams } from "next/navigation";
 
 /*A modal to give scenario*/
 export default function AiGeneratorModal({ isOpen, onClose }: { isOpen: boolean, onClose: () => void }) {
@@ -13,8 +13,10 @@ export default function AiGeneratorModal({ isOpen, onClose }: { isOpen: boolean,
     const [error, setError] = useState<string | null>(null);
 
     // get the diagramId
-    const diagramId = usePathname();
-    // console.log(`[AiGeneratorModal] diagramId: ${diagramId}`);
+    const params = useParams();
+    const diagramId = params.id as string;
+
+    console.log(`[AiGeneratorModal] diagramId: ${diagramId}`);
 
     const handleGenerate = async () => {
         if (!scenario.trim()) {

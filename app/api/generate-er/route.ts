@@ -4,8 +4,7 @@ import { type AgentState } from "@/app/Agents/state";
 
 export async function POST(request: Request) {
   try {
-    const { scenario, diagramId: url } = await request.json();
-    const diagramId = (url as string).split("/").at(-1);
+    const { scenario, diagramId } = await request.json();
     console.log(`[api/generate-er/route.ts] diagramId: ${diagramId}`);
 
     if (!scenario || typeof scenario !== "string") {
@@ -51,7 +50,6 @@ export async function POST(request: Request) {
       },
       { status: 200 },
     );
-    return NextResponse.json({ diagramId }, { status: 200 });
   } catch (error: any) {
     console.error("[Generate ER API Error]:", error);
 

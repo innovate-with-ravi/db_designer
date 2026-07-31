@@ -207,7 +207,7 @@ function DnDCanvas() {
 
 
 export default function EditorPage({ title }: { title: string }) {
-    const params = useParams()
+    const params = useParams();
     // const { theme, resolvedTheme } = useTheme()
 
     const { nodes, edges, validateDiagram, setEntityExpanded, activeExpandedEntityId, setGlobalErrors, setDiagram, exportDialect } = useDiagramStore();
