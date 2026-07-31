@@ -42,10 +42,10 @@ export default function AiGeneratorModal({ isOpen, onClose }: { isOpen: boolean,
             }
 
             // data.jsonSchema and data.generatedSql
-            const { nodes, edges } = await generateLayout(data.jsonSchema);
+            const { nodes, edges, relationshipAttributes } = await generateLayout(data.jsonSchema);
 
             // Push layout to Zustand
-            setDiagram(nodes, edges);
+            setDiagram(nodes, edges, relationshipAttributes);
 
             // Save highly refined SQL from semantic refiner for the AI Export button
             setAiGeneratedSql(data.generatedSql);

@@ -119,7 +119,7 @@ function getAttributeAngles(n: number, activePorts: string[]): number[] {
 
 export const generateLayout = async (
   jsonSchema: AgentDiagramSchema,
-): Promise<{ nodes: Node[]; edges: Edge[] }> => {
+): Promise<{ nodes: Node[]; edges: Edge[]; relationshipAttributes: any[] }> => {
   const initialNodes: Node[] = []; // stores all nodes()
   const initialEdges: Edge[] = [];
   const genId = Math.random().toString(36).substring(2, 9); // Global unique suffix for this layout
@@ -460,5 +460,5 @@ export const generateLayout = async (
     });
   });
 
-  return { nodes: initialNodes, edges: initialEdges };
+  return { nodes: initialNodes, edges: initialEdges, relationshipAttributes: jsonSchema.relationshipAttributes || [] };
 };

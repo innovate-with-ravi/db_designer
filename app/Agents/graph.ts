@@ -35,12 +35,23 @@ Your task is to design a pure conceptual Entity-Relationship (ER) diagram based 
 You must adhere STRICTLY to Chen's Conceptual Modeling principles. Do NOT generate a physical relational schema.
 
 CRITICAL CHEN NOTATION RULES:
-1. NO JUNCTION ENTITIES: Do NOT create explicit junction or associative entities for Many-to-Many relationships. In Chen notation, Many-to-Many associations are pure relationships. You must define a single direct relationship between the two main entities and set its \`maxCardinality\` to "M:N".
-2. NO FOREIGN KEY COLUMNS: Do NOT add foreign key attributes (e.g., \`user_id\`, \`department_id\`) to your entities. Relationships handle the connections logically. The system compiler will physically generate foreign keys later.
+1. NO JUNCTION ENTITIES ON CANVAS: Do NOT create explicit junction entities in the main 'entities' array for Many-to-Many relationships. Instead you must define a single direct relationship between the two main entities with 'maxCardinality' "M:N".
+2. ASSOCIATIVE DATA: If a Many-to-Many relationship requires payload attributes (like timestamps or roles), you MUST put those attributes in the 'relationshipAttributes' array, linking them via 'sourceEntity' and 'targetEntity'.
 
 CRITICAL SYSTEM RULES:
-3. RESERVED WORDS: DO NOT use ANY of the following SQL reserved keywords for entity or attribute names:
+3. DETERMINISTIC NAMING: You MUST use the EXACT nouns provided in the user's scenario for your entity names (e.g., if the prompt says "Users", name the entity "USERS". If it says "MusicTrack", use "MUSIC_TRACK"). Do not invent synonyms.
+4. RESERVED WORDS: DO NOT use ANY of the following SQL reserved keywords for entity or attribute names:
 ${Array.from(SQL_RESERVED_WORDS).join(", ")}
+
+FEW-SHOT EXAMPLE FOR M:N PAYLOAD DATA:
+Scenario: "A User can be assigned to multiple Projects. We need to record the exact 'assigned_at' date for each assignment."
+{
+  "entities": [ { "name": "USER", ... }, { "name": "PROJECT", ... } ],
+  "relationships": [ { "sourceEntity": "USER", "targetEntity": "PROJECT", "maxCardinality": "M:N", ... } ],
+  "relationshipAttributes": [ 
+    { "sourceEntity": "USER", "targetEntity": "PROJECT", "attributes": [ { "name": "assigned_at", "dataType": "TIMESTAMP", ... } ] }
+  ]
+}
 
 Return your assessment matching the requested JSON schema perfectly.`;
 
@@ -351,6 +362,7 @@ const compilerNode = async (state: typeof AgentState.State) => {
         compiledEntities,
         edges,
         state.dialect || "mysql",
+        schema.relationshipAttributes || []
       );
 
     return {
@@ -399,10 +411,11 @@ EXAMPLES OF BAD TO GOOD NAMING:
 - Simplify redundant column names: 'userr_u_id' -> 'user_id', 'student_student_id' -> 'student_id'
 
 CRITICAL RULES:
-1. DO NOT change the data types, foreign key constraints, primary keys, or structural execution logic.
-2. DO NOT use ANY of the following SQL reserved keywords for table or column names:
+1. DETERMINISTIC NAMING: You MUST retain the EXACT semantic root nouns from the legacy script (e.g., if the original table is 'MUSIC_TRACK', do not rename it to 'SONG'). Do not invent synonyms. Only clean up robotic formatting.
+2. DO NOT change the data types, foreign key constraints, primary keys, or structural execution logic.
+3. DO NOT use ANY of the following SQL reserved keywords for table or column names:
 ${Array.from(SQL_RESERVED_WORDS).join(", ")}
-3. DO NOT wrap the output in markdown \`\`\` blocks. Output ONLY the pure SQL/Prisma string.
+4. DO NOT wrap the output in markdown \`\`\` blocks. Output ONLY the pure SQL/Prisma string.
 
 SCRIPT TO REFINE:
 ${state.generatedSql}

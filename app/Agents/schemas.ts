@@ -22,7 +22,6 @@ export const AgentAttributeSchemaBase = z.object({
 export const AgentEntitySchemaBase = z.object({
   name: z.string().describe("Entity/Table name. MUST be a singular noun and UPPERCASE. DO NOT use SQL reserved keywords like USER, ORDER, or GROUP (use APP_USER, CUSTOMER_ORDER, etc.)."),
   attributes: z.array(AgentAttributeSchemaBase).min(1, "Entity must have at least one attribute"),
-  entityType: z.enum(["standard", "composite"]).optional().describe("Mark as 'composite' only if this entity is a junction table designed to resolve a Many-to-Many relationship. Otherwise, leave as 'standard'."),
 });
 
 export const AgentRelationshipSchemaBase = z.object({
@@ -33,9 +32,16 @@ export const AgentRelationshipSchemaBase = z.object({
   minCardinality: z.string().describe("The minimum cardinality of the relationship (0 for optional, 1 for mandatory). Example: '0:1', '1:1', '0:0'. DO NOT use 'N' or 'M'."),
 });
 
+export const AgentRelationshipAttributeSchema = z.object({
+  sourceEntity: z.string().describe("Name of the source/parent entity (must exactly match an entity name)"),
+  targetEntity: z.string().describe("Name of the target/child entity (must exactly match an entity name)"),
+  attributes: z.array(AgentAttributeSchemaBase).describe("Attributes that belong to this relationship (e.g. added_at, role)."),
+});
+
 export const AgentDiagramSchemaBase = z.object({
   entities: z.array(AgentEntitySchemaBase),
   relationships: z.array(AgentRelationshipSchemaBase),
+  relationshipAttributes: z.array(AgentRelationshipAttributeSchema).optional().describe("Put payload attributes for Many-to-Many relationships here."),
 });
 
 // ==========================================
@@ -69,6 +75,7 @@ export const AgentRelationshipSchema = AgentRelationshipSchemaBase;
 export const AgentDiagramSchema = z.object({
   entities: z.array(AgentEntitySchema),
   relationships: z.array(AgentRelationshipSchema),
+  relationshipAttributes: z.array(AgentRelationshipAttributeSchema).optional(),
 });
 
 // ==========================================

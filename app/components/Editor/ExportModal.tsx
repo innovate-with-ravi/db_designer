@@ -12,7 +12,7 @@ import { Edge } from "@langchain/core/runnables/graph";
 
 export default function ExportModal({ isOpen, onClose, mode = 'canvas' }: { isOpen: boolean, onClose: () => void, mode?: 'canvas' | 'ai' }) {
     const { theme, resolvedTheme } = useTheme();
-    const { nodes, edges, exportDialect, setExportDialect, aiGeneratedSql } = useDiagramStore();
+    const { nodes, edges, exportDialect, setExportDialect, aiGeneratedSql, relationshipAttributes } = useDiagramStore();
     const [copied, setCopied] = useState(false);
 
     // Local state to manage the outputs dynamically
@@ -34,9 +34,9 @@ export default function ExportModal({ isOpen, onClose, mode = 'canvas' }: { isOp
                 } else {
                     const compiledEntities = compileDiagramState(nodes, edges);
                     if (exportDialect === 'prisma') {
-                        finalCode = generatePrisma(compiledEntities, edges);
+                        finalCode = generatePrisma(compiledEntities, edges, relationshipAttributes);
                     } else {
-                        finalCode = generateSQL(compiledEntities, (edges as Edge[]), exportDialect);
+                        finalCode = generateSQL(compiledEntities, (edges as Edge[]), exportDialect, relationshipAttributes);
                     }
                 }
 

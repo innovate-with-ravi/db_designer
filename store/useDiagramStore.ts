@@ -24,6 +24,7 @@ export interface ValidationError {
 interface DiagramState {
   nodes: Node[];
   edges: Edge[];
+  relationshipAttributes: any[];
 
   // Actions that React Flow needs to handle physics
   onNodesChange: OnNodesChange;
@@ -45,7 +46,7 @@ interface DiagramState {
   activeErrorNodeId: string | null;
   setActiveErrorNodeId: (id: string | null) => void;
 
-  setDiagram: (nodes: any[], edges: any[]) => void;
+  setDiagram: (nodes: any[], edges: any[], relationshipAttributes?: any[]) => void;
 
   // History state
   past: { nodes: Node[]; edges: Edge[] }[];
@@ -72,6 +73,7 @@ interface DiagramState {
 const useDiagramStore = create<DiagramState>((set, get) => ({
   nodes: [],
   edges: [],
+  relationshipAttributes: [],
   activeExpandedEntityId: null,
   globalErrors: [],
   activeErrorNodeId: null,
@@ -217,16 +219,19 @@ const useDiagramStore = create<DiagramState>((set, get) => ({
     });
   },
 
-  // 🌟 2. STRATEGIC SNAPSHOT TRIGGERS
-  setDiagram: (nodes, edges) => set({
-    nodes,
-    edges,
-    globalErrors: [],
-    activeExpandedEntityId: null,
-    activeErrorNodeId: null,
-    past: [],
-    future: []
-  }),
+  // 🌟 10. SET ENTIRE DIAGRAM (Used by AI Generator & Initial Load)
+  setDiagram: (nodes, edges, relationshipAttributes = []) => {
+    set({ 
+      nodes, 
+      edges, 
+      relationshipAttributes,
+      globalErrors: [],
+      activeExpandedEntityId: null,
+      activeErrorNodeId: null,
+      past: [],
+      future: []
+    });
+  },
 
   setGlobalErrors: (errors) => set({ globalErrors: errors }),
   setActiveErrorNodeId: (id) => set({ activeErrorNodeId: id }),
