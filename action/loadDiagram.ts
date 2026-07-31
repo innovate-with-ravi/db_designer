@@ -60,7 +60,6 @@ export async function getDiagramById(diagramId: string) {
         id: diagramId,
         userId: session.user.id, // Security: Prevents loading someone else's diagram!
       },
-      // This is where the magic happens: pull the relational data
       include: {
         nodes: true,
         edges: true,

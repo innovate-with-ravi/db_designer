@@ -356,7 +356,7 @@ const compilerNode = async (state: typeof AgentState.State) => {
     let finalScript = ``;
 
     if (state.dialect === "prisma")
-      finalScript = generatePrisma(compiledEntities, edges);
+      finalScript = generatePrisma(compiledEntities, edges, schema.relationshipAttributes || []);
     else
       finalScript = generateSQL(
         compiledEntities,

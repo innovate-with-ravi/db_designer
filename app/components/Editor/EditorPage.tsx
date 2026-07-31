@@ -234,6 +234,7 @@ export default function EditorPage({ title }: { title: string }) {
                 const rfNodes = response.diagram.nodes.map((n: any) => {
                     const rfData = n.node_data_json?._rf || {};
                     const { _rf, ...cleanData } = n.node_data_json;
+                    
                     return {
                         id: n.id,
                         type: n.type,
@@ -268,7 +269,8 @@ export default function EditorPage({ title }: { title: string }) {
                     };
                 });
 
-                setDiagram(rfNodes, rfEdges);
+                // rfRelationshipAttributes
+                setDiagram(rfNodes, rfEdges, (response.diagram.relationshipAttributes as any) || []);
                 setIsHydrating(false);
             } else {
                 alert("Failed to load diagram.");

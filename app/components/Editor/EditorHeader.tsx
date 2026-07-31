@@ -22,6 +22,7 @@ export default function EditorHeader({ id, title, nodes, edges, onExportClick, o
 
     const [isPending, startTransition] = useTransition();
     const [syncStatus, setSyncStatus] = useState<"Saved ✅" | "Unsaved" | "Saving...">("Saved ✅");
+    const { relationshipAttributes } = useDiagramStore();
 
     const [showTips, setShowTips] = useState(false);
     const [isAiModalOpen, setIsAiModalOpen] = useState(false);
@@ -55,8 +56,8 @@ export default function EditorHeader({ id, title, nodes, edges, onExportClick, o
         const cleanEdges = edges.map(e => ({
             id: e.id, source: e.source, target: e.target, sourceHandle: e.sourceHandle, targetHandle: e.targetHandle, type: e.type, data: e.data
         }));
-        return JSON.stringify({ title: localTitle, nodes: cleanNodes, edges: cleanEdges });
-    }, [nodes, edges, localTitle]);
+        return JSON.stringify({ title: localTitle, nodes: cleanNodes, edges: cleanEdges, relationshipAttributes });
+    }, [nodes, edges, localTitle, relationshipAttributes]);
 
     const lastSavedPayload = useRef(currentPayloadString);
     const isFirstRender = useRef(true);

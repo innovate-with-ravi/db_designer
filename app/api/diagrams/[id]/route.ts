@@ -57,7 +57,13 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
 
         // 2. Parse the incoming JSON body from the frontend -> comes in string fromat JSON.stringigy({obj})
         const body = await request.json();
-        const { title, nodes, edges } = body;
+        const { title, nodes, edges, relationshipAttributes } = body;
+
+        // 3. Update the Diagram Title and relationshipAttributes
+        await prisma.diagram.update({
+            where: { id: diagramId },
+            data: { title, relationshipAttributes: relationshipAttributes || [] }
+        });
 
         /**
          * figuring out exactly which nodes were moved, deleted, or added by the user is a mathematical nightmare. The 80/20 solution for canvas-saving is to tell Prisma: "Wipe the old canvas children clean, and instantly insert this new snapshot."

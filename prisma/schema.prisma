@@ -86,6 +86,8 @@ model Diagram {
   // A diagram contains many nodes and edges
   nodes DiagramNode[]
   edges DiagramEdge[]
+  
+  relationshipAttributes Json?
 }
 
 // 3. Diagram Nodes Table
