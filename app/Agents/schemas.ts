@@ -22,6 +22,7 @@ export const AgentAttributeSchemaBase = z.object({
 export const AgentEntitySchemaBase = z.object({
   name: z.string().describe("Entity/Table name. MUST be a singular noun and UPPERCASE. DO NOT use SQL reserved keywords like USER, ORDER, or GROUP (use APP_USER, CUSTOMER_ORDER, etc.)."),
   attributes: z.array(AgentAttributeSchemaBase).min(1, "Entity must have at least one attribute"),
+  entityType: z.enum(["standard", "composite"]).optional().describe("Mark as 'composite' only if this entity is a junction table designed to resolve a Many-to-Many relationship. Otherwise, leave as 'standard'."),
 });
 
 export const AgentRelationshipSchemaBase = z.object({

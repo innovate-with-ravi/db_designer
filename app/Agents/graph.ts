@@ -31,8 +31,10 @@ const generateNode = async (state: typeof AgentState.State) => {
   const prompt = `You are a senior database architect.
 Your task is to generate a logical ER diagram for this scenario: "${state.scenario}".
 
-CRITICAL RULE: DO NOT use ANY of the following SQL reserved keywords for entity or attribute names:
+CRITICAL RULE 1: DO NOT use ANY of the following SQL reserved keywords for entity or attribute names:
 ${Array.from(SQL_RESERVED_WORDS).join(", ")}
+
+CRITICAL RULE 2: CHEN NOTATION STRICT RULE - Do NOT create explicit junction/associative entities for Many-to-Many relationships. Instead, just define a single direct relationship between the two main entities and set its \`maxCardinality\` to "M:N".
 
 Return your assessment matching the requested JSON schema perfectly.`;
 
