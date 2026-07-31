@@ -52,7 +52,7 @@ export default function ExportModal({ isOpen, onClose, mode = 'canvas' }: { isOp
         };
 
         generate();
-    }, [nodes, edges, exportDialect, isOpen, resolvedTheme, theme]);
+    }, [nodes, edges, exportDialect, isOpen, resolvedTheme, theme, relationshipAttributes, aiGeneratedSql, mode]);
 
     const handleCopy = () => {
         navigator.clipboard.writeText(rawCode); // Copy the raw string, not HTML tags!

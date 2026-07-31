@@ -65,7 +65,7 @@ export const generatePrisma = (
         }
     });
 
-    // 🌟 1. Semantic M:N (Junctions)
+    // 🌟 1. Semantic M:N (Junctions) => creating junction edges
     const finalEntities = processedEntities.filter((entity: any) => {
         if (String(entity.id).startsWith('junction_')) {
             const fk1 = entity.foreignKeys[0];
@@ -88,14 +88,14 @@ export const generatePrisma = (
             while (globalUsedRelationTags.has(finalRelTag)) { finalRelTag = `${finalRelTag}_${rCount++}`; }
             globalUsedRelationTags.add(finalRelTag);
 
-            modelRelations[tableA].push(`  ${arrA} ${tableB}[] @relation("${finalRelTag}")`);
-            modelRelations[tableB].push(`  ${arrB} ${tableA}[] @relation("${finalRelTag}")`);
-
-            // what's this?
             if (entity.attributes && entity.attributes.length > 0) {
                 // It has payload data! Prisma requires explicit junction models for payload data.
+                // so we don't need to store back relations for this model
                 return true; 
             }
+
+            modelRelations[tableA].push(`  ${arrA} ${tableB}[] @relation("${finalRelTag}")`);
+            modelRelations[tableB].push(`  ${arrB} ${tableA}[] @relation("${finalRelTag}")`);
 
             return false;
         }

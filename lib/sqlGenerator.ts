@@ -185,8 +185,8 @@ export const preProcessRelationships = (
       let payloadAttributes: any[] = [];
       const relAttr = relationshipAttributes.find(
         (ra) => 
-          (ra.sourceEntity === sourceNode.data.label && ra.targetEntity === targetNode.data.label) ||
-          (ra.sourceEntity === targetNode.data.label && ra.targetEntity === sourceNode.data.label)
+          (String(ra.sourceEntity).toUpperCase() === String(sourceNode.data.label).toUpperCase() && String(ra.targetEntity).toUpperCase() === String(targetNode.data.label).toUpperCase()) ||
+          (String(ra.sourceEntity).toUpperCase() === String(targetNode.data.label).toUpperCase() && String(ra.targetEntity).toUpperCase() === String(sourceNode.data.label).toUpperCase())
       );
 
       if (relAttr && relAttr.attributes) {
