@@ -322,14 +322,16 @@ const useDiagramStore = create<DiagramState>((set, get) => ({
         });
       }
 
-      if (!hasRelationships && entities.length > 1 && allAttrs.length > 0) {
-        errors.push({ message: `Warning: Table '${tableName}' is completely disconnected from the rest of the database.`, nodeId: entity.id });
-      }
+      // Allow isolated entities
+      // if (!hasRelationships && entities.length > 1 && allAttrs.length > 0) {
+      //   errors.push({ message: `Warning: Table '${tableName}' is completely disconnected from the rest of the database.`, nodeId: entity.id });
+      // }
     });
 
     const relationshipEdges = edges.filter(e => e.type === 'relationship');
     const edgePairs = new Map<string, Set<string>>();
 
+    // 2. Relationship Cheks
     relationshipEdges.forEach(edge => {
       const sourceNode = nodes.find(n => n.id === edge.source);
       const targetNode = nodes.find(n => n.id === edge.target);
