@@ -28,13 +28,19 @@ const generateNode = async (state: typeof AgentState.State) => {
 
   const structuredLlm = getResilientStructuredModel(AgentDiagramSchemaBase);
 
-  const prompt = `You are a senior database architect.
-Your task is to generate a logical ER diagram for this scenario: "${state.scenario}".
+  const prompt = `You are an expert Data Architect.
+Your task is to design a pure conceptual Entity-Relationship (ER) diagram based on Chen's Database Notation for the following scenario: 
+"${state.scenario}"
 
-CRITICAL RULE 1: DO NOT use ANY of the following SQL reserved keywords for entity or attribute names:
+You must adhere STRICTLY to Chen's Conceptual Modeling principles. Do NOT generate a physical relational schema.
+
+CRITICAL CHEN NOTATION RULES:
+1. NO JUNCTION ENTITIES: Do NOT create explicit junction or associative entities for Many-to-Many relationships. In Chen notation, Many-to-Many associations are pure relationships. You must define a single direct relationship between the two main entities and set its \`maxCardinality\` to "M:N".
+2. NO FOREIGN KEY COLUMNS: Do NOT add foreign key attributes (e.g., \`user_id\`, \`department_id\`) to your entities. Relationships handle the connections logically. The system compiler will physically generate foreign keys later.
+
+CRITICAL SYSTEM RULES:
+3. RESERVED WORDS: DO NOT use ANY of the following SQL reserved keywords for entity or attribute names:
 ${Array.from(SQL_RESERVED_WORDS).join(", ")}
-
-CRITICAL RULE 2: CHEN NOTATION STRICT RULE - Do NOT create explicit junction/associative entities for Many-to-Many relationships. Instead, just define a single direct relationship between the two main entities and set its \`maxCardinality\` to "M:N".
 
 Return your assessment matching the requested JSON schema perfectly.`;
 
