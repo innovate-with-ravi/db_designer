@@ -3,6 +3,7 @@
 import { useState } from "react";
 import useDiagramStore from "@/store/useDiagramStore";
 import { generateLayout } from "@/lib/layout";
+import { usePathname } from 'next/navigation'
 
 /*A modal to give scenario*/
 export default function AiGeneratorModal({ isOpen, onClose }: { isOpen: boolean, onClose: () => void }) {
@@ -10,6 +11,10 @@ export default function AiGeneratorModal({ isOpen, onClose }: { isOpen: boolean,
     const [scenario, setScenario] = useState("");
     const [isGenerating, setIsGenerating] = useState(false);
     const [error, setError] = useState<string | null>(null);
+
+    // get the diagramId
+    const diagramId = usePathname();
+    // console.log(`[AiGeneratorModal] diagramId: ${diagramId}`);
 
     const handleGenerate = async () => {
         if (!scenario.trim()) {
@@ -24,7 +29,7 @@ export default function AiGeneratorModal({ isOpen, onClose }: { isOpen: boolean,
             const response = await fetch('/api/generate-er', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ scenario })
+                body: JSON.stringify({ scenario, diagramId })
             });
 
             console.log("[AiGeneratorModal] response:", JSON.stringify(response, null, 2));

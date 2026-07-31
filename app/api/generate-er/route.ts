@@ -4,7 +4,9 @@ import { type AgentState } from "@/app/Agents/state";
 
 export async function POST(request: Request) {
   try {
-    const { scenario } = await request.json();
+    const { scenario, diagramId: url } = await request.json();
+    const diagramId = (url as string).split("/").at(-1);
+    console.log(`[api/generate-er/route.ts] diagramId: ${diagramId}`);
 
     if (!scenario || typeof scenario !== "string") {
       return NextResponse.json(
@@ -30,7 +32,7 @@ export async function POST(request: Request) {
 
     // The LangGraph agent runs its cycles and returns the final state
     const result = await erArchitectAgent.invoke(initialState, {
-      runName: "MyCustomGraphRun",
+      runName: diagramId,
     });
 
     // If it hit circuit breaker and failed, the valid states will be false or null
@@ -49,6 +51,7 @@ export async function POST(request: Request) {
       },
       { status: 200 },
     );
+    return NextResponse.json({ diagramId }, { status: 200 });
   } catch (error: any) {
     console.error("[Generate ER API Error]:", error);
 

@@ -19,8 +19,8 @@ type EditorHeaderProps = {
 }
 
 export default function EditorHeader({ id, title, nodes, edges, onExportClick, onAiExportClick }: EditorHeaderProps) {
+
     const [isPending, startTransition] = useTransition();
-    // const router = useRouter();
     const [syncStatus, setSyncStatus] = useState<"Saved ✅" | "Unsaved" | "Saving...">("Saved ✅");
 
     const [showTips, setShowTips] = useState(false);
