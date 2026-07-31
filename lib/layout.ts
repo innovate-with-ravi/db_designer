@@ -228,6 +228,9 @@ export const generateLayout = async (
       (node) => node.data.label === rel.targetEntity,
     );
 
+    const [sourceMax, targetMax] = (rel.maxCardinality || "1:N").split(":");
+    const [sourceMin, targetMin] = (rel.minCardinality || "1:1").split(":");
+
     // external relationship edges
     initialEdges.push({
       id: `edge-rel-${sourceId}-${targetId}-${index}`, // -index if there are many relationshipEdges b/w src & tgt
@@ -235,10 +238,10 @@ export const generateLayout = async (
       target: targetId,
       type: "relationship",
       data: {
-        sourceMaximumCardinality:
-          sourceEntity?.data.sourceMaximumCardinality || "1", // Fallback defaults
-        targetMaximumCardinality:
-          targetEntity?.data.sourceMaximumCardinality || "N",
+        sourceMaximumCardinality: sourceMax || "1",
+        targetMaximumCardinality: targetMax || "N",
+        sourceMinimumCardinality: sourceMin || "1",
+        targetMinimumCardinality: targetMin || "1",
         label: rel.label,
       },
       // sourceHandle and targetHandle will be injected in Phase 3

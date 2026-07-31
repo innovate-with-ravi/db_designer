@@ -102,6 +102,8 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
                         target_node: edge.target,
                         source_cardinality: edge.data?.sourceMaximumCardinality || '1',
                         target_cardinality: edge.data?.targetMaximumCardinality || 'N',
+                        source_min_cardinality: edge.data?.sourceMinimumCardinality || '1',
+                        target_min_cardinality: edge.data?.targetMinimumCardinality || '1',
                         label: edge.data?.label || 'REL',
                         type: edge.type || 'default',
 

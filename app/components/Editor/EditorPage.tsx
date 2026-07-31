@@ -261,8 +261,8 @@ export default function EditorPage({ title }: { title: string }) {
                         data: isEntityToEntity ? {
                             sourceMaximumCardinality: e.source_cardinality,
                             targetMaximumCardinality: e.target_cardinality,
-                            sourceMinimumCardinality: e.source_cardinality,
-                            targetMinimumCardinality: e.target_cardinality,
+                            sourceMinimumCardinality: e.source_min_cardinality || '1',
+                            targetMinimumCardinality: e.target_min_cardinality || '1',
                             label: e.label
                         } : undefined
                     };

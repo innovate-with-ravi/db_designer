@@ -108,9 +108,11 @@ model DiagramEdge {
   source_node        String
   target_node        String
   type               String
-  source_cardinality String?
-  target_cardinality String?
-  label              String?
+  source_cardinality     String?
+  target_cardinality     String?
+  source_min_cardinality String?
+  target_min_cardinality String?
+  label                  String?
 
   // 🌟 NEW: Track the exact connection ports!
   source_handle String?
