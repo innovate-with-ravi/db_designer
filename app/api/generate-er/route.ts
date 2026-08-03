@@ -35,6 +35,7 @@ export async function POST(request: Request) {
   try {
     const { scenario, diagramId, apiKeys } = await request.json();
     console.log(`[api/generate-er/route.ts] diagramId: ${diagramId}`);
+    console.log(`[api/generate-er/route.ts] apiKeys: ${JSON.stringify(apiKeys)}`);
 
     if (!scenario || typeof scenario !== "string") {
       return NextResponse.json(
