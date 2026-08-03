@@ -57,12 +57,12 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
 
         // 2. Parse the incoming JSON body from the frontend -> comes in string fromat JSON.stringigy({obj})
         const body = await request.json();
-        const { title, nodes, edges, relationshipAttributes } = body;
+        const { title, nodes, edges, relationshipAttributes, lastScenario, aiGeneratedSql } = body;
 
         // 3. Update the Diagram Title and relationshipAttributes
         await prisma.diagram.update({
             where: { id: diagramId },
-            data: { title, relationshipAttributes: relationshipAttributes || [] }
+            data: { title, relationshipAttributes: relationshipAttributes || [], lastScenario, aiGeneratedSql }
         });
 
         /**

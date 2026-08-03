@@ -1,6 +1,6 @@
 // React Flow requires a specific utility called applyNodeChanges and applyEdgeChanges to handle dragging math when using external state managers.
 
-import { create } from 'zustand';
+import { create } from "zustand";
 import {
   Node,
   Edge,
@@ -9,11 +9,11 @@ import {
   OnEdgesChange,
   OnConnect,
   applyNodeChanges,
-  applyEdgeChanges
-} from '@xyflow/react';
+  applyEdgeChanges,
+} from "@xyflow/react";
 
-import { compileDiagramState } from '@/lib/compiler';
-import { databaseSchema } from '@/lib/schema';
+import { compileDiagramState } from "@/lib/compiler";
+import { databaseSchema } from "@/lib/schema";
 
 export interface ValidationError {
   message: string;
@@ -46,7 +46,13 @@ interface DiagramState {
   activeErrorNodeId: string | null;
   setActiveErrorNodeId: (id: string | null) => void;
 
-  setDiagram: (nodes: any[], edges: any[], relationshipAttributes?: any[]) => void;
+  setDiagram: (
+    nodes: any[],
+    edges: any[],
+    relationshipAttributes?: any[],
+    lastScenario?: string | null,
+    aiGeneratedSql?: string | null,
+  ) => void;
 
   // History state
   past: { nodes: Node[]; edges: Edge[] }[];
@@ -56,18 +62,22 @@ interface DiagramState {
   redo: () => void;
 
   // deep cloning
-  clipboard: { nodes: Node[], edges: Edge[] }
+  clipboard: { nodes: Node[]; edges: Edge[] };
   copySelection: (isCut?: boolean) => void;
   cutSelection: () => void;
   pasteSelection: () => void;
 
   // dialect
-  exportDialect: 'mysql' | 'oracle' | 'prisma';
-  setExportDialect: (dialect: 'mysql' | 'oracle' | 'prisma') => void;
+  exportDialect: "mysql" | "oracle" | "prisma";
+  setExportDialect: (dialect: "mysql" | "oracle" | "prisma") => void;
 
   // AI Generated SQL
-  aiGeneratedSql: string | null;// move it to db or chache(redis)
+  aiGeneratedSql: string | null; // move it to db or chache(redis)
   setAiGeneratedSql: (sql: string | null) => void;
+
+  // AI Caching
+  lastScenario: string | null;
+  setLastScenario: (scenario: string | null) => void;
 }
 
 const useDiagramStore = create<DiagramState>((set, get) => ({
@@ -78,37 +88,40 @@ const useDiagramStore = create<DiagramState>((set, get) => ({
   globalErrors: [],
   activeErrorNodeId: null,
 
-  exportDialect: 'mysql', // Default
+  exportDialect: "mysql", // Default
   setExportDialect: (dialect) => set({ exportDialect: dialect }),
 
   aiGeneratedSql: null,
   setAiGeneratedSql: (sql) => set({ aiGeneratedSql: sql }),
 
+  lastScenario: null,
+  setLastScenario: (scenario) => set({ lastScenario: scenario }),
+
   // 🌟 1. CLIPBOARD STATE
-  clipboard: { nodes: [], edges: [] } as { nodes: any[], edges: any[] },
+  clipboard: { nodes: [], edges: [] } as { nodes: any[]; edges: any[] },
 
   // 🌟 2. COPY ACTION
   copySelection: () => {
     const { nodes, edges } = get();
 
     // Find what the user actually highlighted
-    const selectedNodes = nodes.filter(n => n.selected);
+    const selectedNodes = nodes.filter((n) => n.selected);
     if (selectedNodes.length === 0) return;
 
     // Create a fast lookup Set of the selected Node IDs
-    const selectedNodeIds = new Set(selectedNodes.map(n => n.id));
+    const selectedNodeIds = new Set(selectedNodes.map((n) => n.id));
 
     // Find edges where BOTH ends are inside the user's selection
-    const selectedEdges = edges.filter(e =>
-      selectedNodeIds.has(e.source) && selectedNodeIds.has(e.target)
+    const selectedEdges = edges.filter(
+      (e) => selectedNodeIds.has(e.source) && selectedNodeIds.has(e.target),
     );
 
     // Save to internal clipboard (Deep copy the data to avoid reference bugs)
     set({
       clipboard: {
         nodes: JSON.parse(JSON.stringify(selectedNodes)),
-        edges: JSON.parse(JSON.stringify(selectedEdges))
-      }
+        edges: JSON.parse(JSON.stringify(selectedEdges)),
+      },
     });
   },
 
@@ -124,8 +137,10 @@ const useDiagramStore = create<DiagramState>((set, get) => ({
     const cutNodeIds = new Set(clipboard.nodes.map((n: any) => n.id));
 
     set({
-      nodes: nodes.filter(n => !cutNodeIds.has(n.id)),
-      edges: edges.filter(e => !cutNodeIds.has(e.source) && !cutNodeIds.has(e.target))
+      nodes: nodes.filter((n) => !cutNodeIds.has(n.id)),
+      edges: edges.filter(
+        (e) => !cutNodeIds.has(e.source) && !cutNodeIds.has(e.target),
+      ),
     });
   },
 
@@ -139,7 +154,10 @@ const useDiagramStore = create<DiagramState>((set, get) => ({
     // A. Build the ID Dictionary map
     const idMap = new Map<string, string>();
     clipboard.nodes.forEach((n: any) => {
-      idMap.set(n.id, `node-${Date.now()}-${Math.floor(Math.random() * 10000)}`);
+      idMap.set(
+        n.id,
+        `node-${Date.now()}-${Math.floor(Math.random() * 10000)}`,
+      );
     });
 
     // B. Clone and Offset Nodes
@@ -164,13 +182,13 @@ const useDiagramStore = create<DiagramState>((set, get) => ({
     }));
 
     // D. Deselect everything currently on the canvas
-    const unselectedNodes = nodes.map(n => ({ ...n, selected: false }));
-    const unselectedEdges = edges.map(e => ({ ...e, selected: false }));
+    const unselectedNodes = nodes.map((n) => ({ ...n, selected: false }));
+    const unselectedEdges = edges.map((e) => ({ ...e, selected: false }));
 
     // E. Inject into the global state
     set({
       nodes: [...unselectedNodes, ...newNodes],
-      edges: [...unselectedEdges, ...newEdges]
+      edges: [...unselectedEdges, ...newEdges],
     });
   },
 
@@ -181,11 +199,14 @@ const useDiagramStore = create<DiagramState>((set, get) => ({
   takeSnapshot: () => {
     const { nodes, edges, past } = get();
     set({
-      past: [...past, {
-        nodes: JSON.parse(JSON.stringify(nodes)),
-        edges: JSON.parse(JSON.stringify(edges))
-      }].slice(-50),
-      future: []
+      past: [
+        ...past,
+        {
+          nodes: JSON.parse(JSON.stringify(nodes)),
+          edges: JSON.parse(JSON.stringify(edges)),
+        },
+      ].slice(-50),
+      future: [],
     });
   },
 
@@ -200,7 +221,7 @@ const useDiagramStore = create<DiagramState>((set, get) => ({
       nodes: previous.nodes,
       edges: previous.edges,
       past: newPast,
-      future: [{ nodes, edges }, ...future]
+      future: [{ nodes, edges }, ...future],
     });
   },
 
@@ -215,38 +236,51 @@ const useDiagramStore = create<DiagramState>((set, get) => ({
       nodes: next.nodes,
       edges: next.edges,
       past: [...past, { nodes, edges }],
-      future: newFuture
+      future: newFuture,
     });
   },
 
   // 🌟 10. SET ENTIRE DIAGRAM (Used by AI Generator & Initial Load)
-  setDiagram: (nodes, edges, relationshipAttributes = []) => {
-    set({ 
-      nodes, 
-      edges, 
+  setDiagram: (
+    nodes,
+    edges,
+    relationshipAttributes = [],
+    lastScenario = null,
+    aiGeneratedSql = null,
+  ) => {
+    set({
+      nodes,
+      edges,
       relationshipAttributes,
+      lastScenario,
+      aiGeneratedSql,
       globalErrors: [],
       activeExpandedEntityId: null,
       activeErrorNodeId: null,
       past: [],
-      future: []
+      future: [],
     });
   },
 
   setGlobalErrors: (errors) => set({ globalErrors: errors }),
   setActiveErrorNodeId: (id) => set({ activeErrorNodeId: id }),
-  setEntityExpanded: (entityId: string | null) => set({ activeExpandedEntityId: entityId }),
+  setEntityExpanded: (entityId: string | null) =>
+    set({ activeExpandedEntityId: entityId }),
 
   // returns true, if no errors in schema exists
   validateDiagram: () => {
     const { nodes, edges } = get();
     const errors: ValidationError[] = [];
 
-    const entities = nodes.filter((n) => n.type === 'entity');
+    const entities = nodes.filter((n) => n.type === "entity");
     const isValidName = (name: string) => /^[a-zA-Z_][a-zA-Z0-9_]*$/.test(name);
 
     if (entities.length === 0) {
-      errors.push({ message: "Your canvas is empty. Add at least one Entity to generate SQL.", nodeId: null });
+      errors.push({
+        message:
+          "Your canvas is empty. Add at least one Entity to generate SQL.",
+        nodeId: null,
+      });
       set({ globalErrors: errors });
       return false;
     }
@@ -255,20 +289,29 @@ const useDiagramStore = create<DiagramState>((set, get) => ({
 
     // 1. TOPOLOGICAL CHECKS
     entities.forEach((entity) => {
-      const tableName = entity.data.label || 'Unnamed_Table';
+      const tableName = entity.data.label || "Unnamed_Table";
 
       if (!isValidName(tableName as string)) {
-        errors.push({ message: `Table '${tableName}' has an invalid name. Use only letters, numbers, and underscores (no spaces).`, nodeId: entity.id });
+        errors.push({
+          message: `Table '${tableName}' has an invalid name. Use only letters, numbers, and underscores (no spaces).`,
+          nodeId: entity.id,
+        });
       }
 
       const upperTableName = (tableName as string).toUpperCase();
       if (seenTableNames.has(upperTableName)) {
-        errors.push({ message: `Duplicate table name found: '${tableName}'. Table names must be unique.`, nodeId: entity.id });
+        errors.push({
+          message: `Duplicate table name found: '${tableName}'. Table names must be unique.`,
+          nodeId: entity.id,
+        });
       }
       seenTableNames.add(upperTableName);
 
       if (!entity.data.primaryKey) {
-        errors.push({ message: `Table '${tableName}' is missing a Primary Key.`, nodeId: entity.id });
+        errors.push({
+          message: `Table '${tableName}' is missing a Primary Key.`,
+          nodeId: entity.id,
+        });
       }
 
       const visualAttrs: any[] = [];
@@ -278,13 +321,20 @@ const useDiagramStore = create<DiagramState>((set, get) => ({
         if (visited.has(currentNodeId)) return;
         visited.add(currentNodeId);
 
-        const connectedEdges = edges.filter(e => e.source === currentNodeId || e.target === currentNodeId);
+        const connectedEdges = edges.filter(
+          (e) => e.source === currentNodeId || e.target === currentNodeId,
+        );
 
-        connectedEdges.forEach(edge => {
-          const otherNodeId = edge.source === currentNodeId ? edge.target : edge.source;
-          const otherNode = nodes.find(n => n.id === otherNodeId);
+        connectedEdges.forEach((edge) => {
+          const otherNodeId =
+            edge.source === currentNodeId ? edge.target : edge.source;
+          const otherNode = nodes.find((n) => n.id === otherNodeId);
 
-          if (otherNode && otherNode.type === 'attribute' && !visited.has(otherNodeId)) {
+          if (
+            otherNode &&
+            otherNode.type === "attribute" &&
+            !visited.has(otherNodeId)
+          ) {
             visualAttrs.push({
               id: otherNode.id,
               name: otherNode.data.label,
@@ -292,7 +342,7 @@ const useDiagramStore = create<DiagramState>((set, get) => ({
               size: otherNode.data.size,
               attributeType: otherNode.data.attributeType,
               isUnique: otherNode.data.isUnique,
-              isNotNull: otherNode.data.isNotNull
+              isNotNull: otherNode.data.isNotNull,
             });
             traverse(otherNodeId);
           }
@@ -302,26 +352,46 @@ const useDiagramStore = create<DiagramState>((set, get) => ({
       traverse(entity.id);
 
       const hiddenAttrs = entity.data.hiddenAttributes || [];
-      const allAttrs = [...visualAttrs, ...hiddenAttrs as any];
-      const hasRelationships = edges.some(e => e.type === 'relationship' && (e.source === entity.id || e.target === entity.id));
+      const allAttrs = [...visualAttrs, ...(hiddenAttrs as any)];
+      const hasRelationships = edges.some(
+        (e) =>
+          e.type === "relationship" &&
+          (e.source === entity.id || e.target === entity.id),
+      );
 
       if (allAttrs.length === 0) {
-        errors.push({ message: `Table '${tableName}' has no attributes. Add columns before generating SQL.`, nodeId: entity.id });
+        errors.push({
+          message: `Table '${tableName}' has no attributes. Add columns before generating SQL.`,
+          nodeId: entity.id,
+        });
       } else {
         allAttrs.forEach((attr) => {
-          const attrName = attr.name || 'Unnamed_Column';
-          const isComposite = String(attr.attributeType).toLowerCase().trim() === 'composite';
+          const attrName = attr.name || "Unnamed_Column";
+          const isComposite =
+            String(attr.attributeType).toLowerCase().trim() === "composite";
 
           if (!isValidName(attrName)) {
-            errors.push({ message: `Column '${attrName}' in table '${tableName}' is invalid. No spaces or special characters allowed.`, nodeId: attr.id || entity.id });
+            errors.push({
+              message: `Column '${attrName}' in table '${tableName}' is invalid. No spaces or special characters allowed.`,
+              nodeId: attr.id || entity.id,
+            });
           }
 
           if (!isComposite) {
-            const upperType = (attr.dataType || '').toUpperCase();
+            const upperType = (attr.dataType || "").toUpperCase();
             if (!upperType) {
-              errors.push({ message: `Column '${attrName}' in table '${tableName}' is missing a Data Type.`, nodeId: attr.id || entity.id });
-            } else if ((upperType === 'VARCHAR' || upperType === 'CHAR') && (!attr.size || attr.size.trim() === '')) {
-              errors.push({ message: `Column '${attrName}' in table '${tableName}' requires a Size (e.g., 255).`, nodeId: attr.id || entity.id });
+              errors.push({
+                message: `Column '${attrName}' in table '${tableName}' is missing a Data Type.`,
+                nodeId: attr.id || entity.id,
+              });
+            } else if (
+              (upperType === "VARCHAR" || upperType === "CHAR") &&
+              (!attr.size || attr.size.trim() === "")
+            ) {
+              errors.push({
+                message: `Column '${attrName}' in table '${tableName}' requires a Size (e.g., 255).`,
+                nodeId: attr.id || entity.id,
+              });
             }
           }
         });
@@ -333,28 +403,34 @@ const useDiagramStore = create<DiagramState>((set, get) => ({
       // }
     });
 
-    const relationshipEdges = edges.filter(e => e.type === 'relationship');
+    const relationshipEdges = edges.filter((e) => e.type === "relationship");
     const edgePairs = new Map<string, Set<string>>();
 
     // 2. Relationship Cheks
-    relationshipEdges.forEach(edge => {
-      const sourceNode = nodes.find(n => n.id === edge.source);
-      const targetNode = nodes.find(n => n.id === edge.target);
+    relationshipEdges.forEach((edge) => {
+      const sourceNode = nodes.find((n) => n.id === edge.source);
+      const targetNode = nodes.find((n) => n.id === edge.target);
       if (!sourceNode || !targetNode) return;
 
-      const sourceName = sourceNode.data.label || 'Unknown';
-      const targetName = targetNode.data.label || 'Unknown';
-      const label = String(edge.data?.label || '').trim();
+      const sourceName = sourceNode.data.label || "Unknown";
+      const targetName = targetNode.data.label || "Unknown";
+      const label = String(edge.data?.label || "").trim();
 
-      if (!label || label.toUpperCase() === 'REL') {
-        errors.push({ message: `Relationship '${label}' between '${sourceName}' and '${targetName}' requires a valid semantic name.`, nodeId: sourceNode.id });
+      if (!label || label.toUpperCase() === "REL") {
+        errors.push({
+          message: `Relationship '${label}' between '${sourceName}' and '${targetName}' requires a valid semantic name.`,
+          nodeId: sourceNode.id,
+        });
       } else {
-        const pairKey = [sourceNode.id, targetNode.id].sort().join('-');
+        const pairKey = [sourceNode.id, targetNode.id].sort().join("-");
         if (!edgePairs.has(pairKey)) edgePairs.set(pairKey, new Set());
 
         const upperLabel = label.toUpperCase();
         if (edgePairs.get(pairKey)!.has(upperLabel)) {
-          errors.push({ message: `Duplicate relationship name '${label}' between '${sourceName}' and '${targetName}'. Each connection must have a unique semantic name.`, nodeId: sourceNode.id });
+          errors.push({
+            message: `Duplicate relationship name '${label}' between '${sourceName}' and '${targetName}'. Each connection must have a unique semantic name.`,
+            nodeId: sourceNode.id,
+          });
         }
         edgePairs.get(pairKey)!.add(upperLabel);
       }
@@ -373,11 +449,15 @@ const useDiagramStore = create<DiagramState>((set, get) => ({
           const fieldName = issue.path[issue.path.length - 1] as string;
 
           let specificNodeId = brokenEntity.id;
-          let customMessage = `Table '${brokenEntity.data?.label || 'Unknown'}' has an error in '${fieldName}': ${issue.message}`;
+          let customMessage = `Table '${brokenEntity.data?.label || "Unknown"}' has an error in '${fieldName}': ${issue.message}`;
 
-          if (issue.path[1] === 'attributes' && typeof issue.path[2] === 'number') {
+          if (
+            issue.path[1] === "attributes" &&
+            typeof issue.path[2] === "number"
+          ) {
             const brokenAttr = brokenEntity.attributes[issue.path[2]];
-            const attrLabel = brokenAttr.data?.label || `Attribute ${issue.path[2]}`;
+            const attrLabel =
+              brokenAttr.data?.label || `Attribute ${issue.path[2]}`;
             specificNodeId = brokenAttr.id || brokenEntity.id;
             customMessage = `Attribute '${attrLabel}' (in Table '${brokenEntity.data?.label}') has an error in '${fieldName}': ${issue.message}`;
           }
@@ -393,9 +473,9 @@ const useDiagramStore = create<DiagramState>((set, get) => ({
 
   // 🌟 THE BULLETPROOF GUARDS
   onNodesChange: (changes) => {
-    // ONLY snapshot if a node is actively being DELETED. 
+    // ONLY snapshot if a node is actively being DELETED.
     // We explicitly ignore 'position', 'select', and 'dimensions' changes here.
-    const isDeletion = changes.some(c => c.type === 'remove');
+    const isDeletion = changes.some((c) => c.type === "remove");
     if (isDeletion) {
       get().takeSnapshot();
     }
@@ -405,7 +485,7 @@ const useDiagramStore = create<DiagramState>((set, get) => ({
 
   onEdgesChange: (changes) => {
     // ONLY snapshot if an edge is actively being DELETED.
-    const isDeletion = changes.some(c => c.type === 'remove');
+    const isDeletion = changes.some((c) => c.type === "remove");
     if (isDeletion) {
       get().takeSnapshot();
     }
@@ -419,43 +499,54 @@ const useDiagramStore = create<DiagramState>((set, get) => ({
 
     set((state) => ({
       nodes: state.nodes.map((node) =>
-        node.id === nodeId ? { ...node, data: { ...node.data, ...newData } } : node
+        node.id === nodeId
+          ? { ...node, data: { ...node.data, ...newData } }
+          : node,
       ),
     }));
   },
 
   updateEdgeData: (edgeId, newData) => {
     get().takeSnapshot();
-    set((state) => ({ edges: state.edges.map((edge) => edge.id === edgeId ? { ...edge, data: { ...edge.data, ...newData } } : edge) }));
+    set((state) => ({
+      edges: state.edges.map((edge) =>
+        edge.id === edgeId
+          ? { ...edge, data: { ...edge.data, ...newData } }
+          : edge,
+      ),
+    }));
   },
 
   onConnect: (connection: Connection) => {
     get().takeSnapshot();
     const state = get();
 
-    const sourceNode = state.nodes.find(n => n.id === connection.source);
-    const targetNode = state.nodes.find(n => n.id === connection.target);
+    const sourceNode = state.nodes.find((n) => n.id === connection.source);
+    const targetNode = state.nodes.find((n) => n.id === connection.target);
 
     if (!sourceNode || !targetNode) return;
 
-    const isEntityToEntity = sourceNode.type === 'entity' && targetNode.type === 'entity';
-    const finalEdgeType = isEntityToEntity ? 'relationship' : 'default';
+    const isEntityToEntity =
+      sourceNode.type === "entity" && targetNode.type === "entity";
+    const finalEdgeType = isEntityToEntity ? "relationship" : "default";
 
     const newEdge = {
       ...connection,
       id: `edge-${Date.now()}-${Math.floor(Math.random() * 10000)}`,
       type: finalEdgeType,
-      data: isEntityToEntity ? { label: 'REL' } : {}
+      data: isEntityToEntity ? { label: "REL" } : {},
     };
 
     set({ edges: [...state.edges, newEdge] });
 
-    const isSourceKey = sourceNode.data?.attributeType === 'key';
-    const isTargetKey = targetNode.data?.attributeType === 'key';
+    const isSourceKey = sourceNode.data?.attributeType === "key";
+    const isTargetKey = targetNode.data?.attributeType === "key";
 
     if (isSourceKey || isTargetKey) {
-      const entityId = sourceNode.type === 'entity' ? sourceNode.id : targetNode.id;
-      const keyNodeId = sourceNode.type === 'attribute' ? sourceNode.id : targetNode.id;
+      const entityId =
+        sourceNode.type === "entity" ? sourceNode.id : targetNode.id;
+      const keyNodeId =
+        sourceNode.type === "attribute" ? sourceNode.id : targetNode.id;
       state.updateNodeData(entityId, { primaryKey: keyNodeId });
     }
   },

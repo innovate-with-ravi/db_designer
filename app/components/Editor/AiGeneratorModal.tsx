@@ -1,16 +1,23 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import useDiagramStore from "@/store/useDiagramStore";
 import { generateLayout } from "@/lib/layout";
 import { useParams } from "next/navigation";
 
 /*A modal to give scenario*/
 export default function AiGeneratorModal({ isOpen, onClose }: { isOpen: boolean, onClose: () => void }) {
-    const { setDiagram, setAiGeneratedSql } = useDiagramStore();
+    const { setDiagram, setAiGeneratedSql, lastScenario } = useDiagramStore();
     const [scenario, setScenario] = useState("");
     const [isGenerating, setIsGenerating] = useState(false);
     const [error, setError] = useState<string | null>(null);
+
+    // Sync from Zustand on load
+    useEffect(() => {
+        if (lastScenario && !scenario) {
+            setScenario(lastScenario);
+        }
+    }, [lastScenario, isOpen]);
 
     // get the diagramId
     const params = useParams();
@@ -45,9 +52,10 @@ export default function AiGeneratorModal({ isOpen, onClose }: { isOpen: boolean,
             const { nodes, edges, relationshipAttributes } = await generateLayout(data.jsonSchema);
 
             // Push layout to Zustand
-            setDiagram(nodes, edges, relationshipAttributes);
+            setDiagram(nodes, edges, relationshipAttributes, scenario, data.generatedSql);
 
             // Save highly refined SQL from semantic refiner for the AI Export button
+            // setAiGeneratedSql is redundant now since setDiagram handles it, but left for safety
             setAiGeneratedSql(data.generatedSql);
 
             onClose();

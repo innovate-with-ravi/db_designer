@@ -86,8 +86,12 @@ model Diagram {
   // A diagram contains many nodes and edges
   nodes DiagramNode[]
   edges DiagramEdge[]
-  
+
   relationshipAttributes Json?
+
+  // AI Caching State
+  lastScenario   String? @db.Text
+  aiGeneratedSql String? @db.Text
 }
 
 // 3. Diagram Nodes Table
@@ -106,10 +110,10 @@ model DiagramNode {
 
 // 4. Diagram Edges Table
 model DiagramEdge {
-  id                 String  @id
-  source_node        String
-  target_node        String
-  type               String
+  id                     String  @id
+  source_node            String
+  target_node            String
+  type                   String
   source_cardinality     String?
   target_cardinality     String?
   source_min_cardinality String?
