@@ -4,55 +4,57 @@ import { ChatGroq } from "@langchain/groq";
 import { ChatGoogleGenerativeAI } from "@langchain/google-genai";
 import { z } from "zod";
 
-// 1. Official OpenAI (Fastest, but subject to 429 rate limits)
-const officialOpenAI = new ChatOpenAI({
-  model: "gpt-4o-mini",
-  apiKey: process.env.OPENAI_API_KEY,
-  temperature: 0,
-  maxRetries: 0,
-});
+export type UserApiKeys = {
+  openai?: string;
+  gemini?: string;
+  groq?: string;
+};
 
-// 2. Gemini (Incredible free tier, great logic capabilities)
-const geminiModel = new ChatGoogleGenerativeAI({
-  model: "antigravity-preview-05-2026",
-  apiKey: process.env.GEMINI_API_KEY,
-  temperature: 0,
-  maxRetries: 0,
-});
+// Factory functions to create models per-request
+const createModels = (keys?: UserApiKeys) => {
+  const officialOpenAI = new ChatOpenAI({
+    model: "gpt-4o-mini",
+    apiKey: keys?.openai || process.env.OPENAI_API_KEY,
+    temperature: 0,
+    maxRetries: 0,
+  });
 
-// 3. GitHub / Azure OpenAI Compatible Endpoint (High latency, proxy)
-const githubAzureModel = new ChatOpenAI({
-  model: process.env.AI_MODEL || "gpt-4o-mini",
-  configuration: { baseURL: process.env.AI_ENDPOINT },
-  apiKey: process.env.AI_API_KEY,
-  temperature: 0,
-  maxRetries: 0,
-});
+  const geminiModel = new ChatGoogleGenerativeAI({
+    model: "antigravity-preview-05-2026",
+    apiKey: keys?.gemini || process.env.GEMINI_API_KEY,
+    temperature: 0,
+    maxRetries: 0,
+  });
 
-// 4. Groq (Blazing fast open-source models)
-const groqModel = new ChatGroq({
-  model: "llama-3.3-70b-versatile",
-  apiKey: process.env.GROQ_API_KEY,
-  temperature: 0,
-  maxRetries: 0,
-});
+  const githubAzureModel = new ChatOpenAI({
+    model: process.env.AI_MODEL || "gpt-4o-mini",
+    configuration: { baseURL: process.env.AI_ENDPOINT },
+    apiKey: process.env.AI_API_KEY,
+    temperature: 0,
+    maxRetries: 0,
+  });
 
-// 5. Local Ollama Model (Zero quota limits, runs on your machine)
-// const localOllamaModel = new ChatOpenAI({
-//   model: "llama3.1",
-//   configuration: { baseURL: "http://localhost:11434/v1" }, // Ollama's local OpenAI-compatible endpoint
-//   apiKey: "ollama", // Required by the SDK, but Ollama ignores it
-//   temperature: 0,
-//   maxRetries: 0,
-// });
+  const groqModel = new ChatGroq({
+    model: "llama-3.3-70b-versatile",
+    apiKey: keys?.groq || process.env.GROQ_API_KEY,
+    temperature: 0,
+    maxRetries: 0,
+  });
+
+  return { officialOpenAI, geminiModel, githubAzureModel, groqModel };
+};
 
 /**
- * 🌟 EXPORT 1: Generic Resilient Model
+ * 🌟 EXPORT 1: Generic Resilient Model Factory
  * Use this anywhere in your code for standard text/chat generation.
  */
-export const resilientModel = geminiModel.withFallbacks({
-  fallbacks: [groqModel, officialOpenAI, githubAzureModel],
-});
+export const getResilientModel = (keys?: UserApiKeys) => {
+  const { officialOpenAI, geminiModel, githubAzureModel, groqModel } = createModels(keys);
+  
+  return geminiModel.withFallbacks({
+    fallbacks: [groqModel, officialOpenAI, githubAzureModel],
+  });
+};
 
 /**
  * 🌟 EXPORT 2: Structured Resilient Model Factory
@@ -60,11 +62,13 @@ export const resilientModel = geminiModel.withFallbacks({
  */
 export const getResilientStructuredModel = <T extends z.ZodTypeAny>(
   schema: T,
+  keys?: UserApiKeys
 ) => {
+  const { officialOpenAI, geminiModel, githubAzureModel, groqModel } = createModels(keys);
+
   // We apply withStructuredOutput to each model individually BEFORE fallbacks.
   // Why? Because different providers handle JSON schema parsing differently under the hood!
   const primary = geminiModel.withStructuredOutput(schema);
-  // const fbOllama = localOllamaModel.withStructuredOutput(schema);
   const fb1 = groqModel.withStructuredOutput(schema);
   const fb2 = githubAzureModel.withStructuredOutput(schema);
   const fb3 = officialOpenAI.withStructuredOutput(schema);

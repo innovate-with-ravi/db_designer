@@ -5,12 +5,36 @@ import useDiagramStore from "@/store/useDiagramStore";
 import { generateLayout } from "@/lib/layout";
 import { useParams } from "next/navigation";
 
+
+
 /*A modal to give scenario*/
 export default function AiGeneratorModal({ isOpen, onClose }: { isOpen: boolean, onClose: () => void }) {
     const { setDiagram, setAiGeneratedSql, lastScenario } = useDiagramStore();
     const [scenario, setScenario] = useState("");
     const [isGenerating, setIsGenerating] = useState(false);
     const [error, setError] = useState<string | null>(null);
+    // api keys
+    const [apiKeys, setApiKeys] = useState({ openai: '', gemini: '', groq: '' });
+    const [showApiKeys, setShowApiKeys] = useState(false);
+
+    // Load keys from local storage on mount
+    useEffect(() => {
+        const savedKeys = localStorage.getItem('userApiKeys');
+        if (savedKeys) {
+            try {
+                setApiKeys(JSON.parse(savedKeys));
+            } catch (e) {
+                console.error("Failed to parse saved API keys");
+            }
+        }
+    }, []);
+
+    const handleKeyChange = (provider: 'openai' | 'gemini' | 'groq', value: string) => {
+        const newKeys = { ...apiKeys, [provider]: value };
+
+        setApiKeys(newKeys);
+        localStorage.setItem('userApiKeys', JSON.stringify(newKeys));
+    };
 
     // Sync from Zustand on load
     useEffect(() => {
@@ -38,7 +62,7 @@ export default function AiGeneratorModal({ isOpen, onClose }: { isOpen: boolean,
             const response = await fetch('/api/generate-er', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ scenario, diagramId })
+                body: JSON.stringify({ scenario, diagramId, apiKeys })
             });
 
             console.log("[AiGeneratorModal] response:", JSON.stringify(response, null, 2));
@@ -104,6 +128,71 @@ export default function AiGeneratorModal({ isOpen, onClose }: { isOpen: boolean,
                             {error}
                         </div>
                     )}
+
+                    {/* Set apiKeys */}
+                    <div className="mt-2 border border-border rounded-xl overflow-hidden bg-surface/30">
+                        <button
+                            onClick={() => setShowApiKeys(!showApiKeys)}
+                            className="w-full flex items-center justify-between p-4 text-sm font-medium text-foreground hover:bg-surface transition-colors"
+                        >
+                            <span className="flex items-center gap-2">
+                                🔑 Advanced: Use Your Own API Keys
+                            </span>
+                            <span className="text-muted-foreground text-xs">
+                                {showApiKeys ? 'Hide' : 'Show'}
+                            </span>
+                        </button>
+                        
+                        {showApiKeys && (
+                            <div className="p-4 border-t border-border flex flex-col gap-3 bg-surface/10 animate-in slide-in-from-top-2">
+                                <p className="text-xs text-muted-foreground mb-1">
+                                    By default, this tool uses the platform's API keys which may run out of quota. Add your own keys to bypass limits. Keys are saved securely in your browser.
+                                </p>
+                                
+                                <div className="space-y-1">
+                                    <div className="flex items-center justify-between">
+                                        <label className="text-xs font-semibold text-foreground">Google Gemini API Key (Recommended)</label>
+                                        <a href="https://aistudio.google.com/app/apikey" target="_blank" rel="noreferrer" className="text-[10px] text-brand-indigo hover:underline">Get Key</a>
+                                    </div>
+                                    <input
+                                        type="password"
+                                        className="w-full bg-background border border-border rounded-lg px-3 py-2 text-sm text-foreground focus:ring-1 focus:ring-brand-indigo focus:outline-none"
+                                        placeholder="AIzaSy..."
+                                        value={apiKeys.gemini}
+                                        onChange={(e) => handleKeyChange('gemini', e.target.value)}
+                                    />
+                                </div>
+
+                                <div className="space-y-1">
+                                    <div className="flex items-center justify-between">
+                                        <label className="text-xs font-semibold text-foreground">Groq API Key (Fastest)</label>
+                                        <a href="https://console.groq.com/keys" target="_blank" rel="noreferrer" className="text-[10px] text-brand-indigo hover:underline">Get Key</a>
+                                    </div>
+                                    <input
+                                        type="password"
+                                        className="w-full bg-background border border-border rounded-lg px-3 py-2 text-sm text-foreground focus:ring-1 focus:ring-brand-indigo focus:outline-none"
+                                        placeholder="gsk_..."
+                                        value={apiKeys.groq}
+                                        onChange={(e) => handleKeyChange('groq', e.target.value)}
+                                    />
+                                </div>
+
+                                <div className="space-y-1">
+                                    <div className="flex items-center justify-between">
+                                        <label className="text-xs font-semibold text-foreground">OpenAI API Key</label>
+                                        <a href="https://platform.openai.com/api-keys" target="_blank" rel="noreferrer" className="text-[10px] text-brand-indigo hover:underline">Get Key</a>
+                                    </div>
+                                    <input
+                                        type="password"
+                                        className="w-full bg-background border border-border rounded-lg px-3 py-2 text-sm text-foreground focus:ring-1 focus:ring-brand-indigo focus:outline-none"
+                                        placeholder="sk-..."
+                                        value={apiKeys.openai}
+                                        onChange={(e) => handleKeyChange('openai', e.target.value)}
+                                    />
+                                </div>
+                            </div>
+                        )}
+                    </div>
                 </div>
 
                 <div className="p-6 border-t border-border bg-surface/50 flex justify-end">

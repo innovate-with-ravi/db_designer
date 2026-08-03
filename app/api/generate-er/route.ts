@@ -1,14 +1,14 @@
 import { NextResponse } from "next/server";
 import { erArchitectAgent } from "@/app/Agents/graph";
 import { type AgentState } from "@/app/Agents/state";
-import { OpenAIEmbeddings } from "@langchain/openai";
+import { GoogleGenerativeAIEmbeddings } from "@langchain/google-genai";
 import { Index } from "@upstash/vector";
 import { v4 as uuidv4 } from "uuid";
 
-const generateEmbedding = async (text: string) => {
-  const embeddings = new OpenAIEmbeddings({
-    model: "text-embedding-3-small",
-    apiKey: process.env.OPENAI_API_KEY,
+const generateEmbedding = async (text: string, keys?: { gemini?: string }) => {
+  const embeddings = new GoogleGenerativeAIEmbeddings({
+    model: "gemini-embedding-2", // Latest Google embedding model
+    apiKey: keys?.gemini || process.env.GEMINI_API_KEY,
   });
 
   return await embeddings.embedQuery(text);
@@ -19,7 +19,7 @@ const index = new Index();
 
 export async function POST(request: Request) {
   try {
-    const { scenario, diagramId } = await request.json();
+    const { scenario, diagramId, apiKeys } = await request.json();
     console.log(`[api/generate-er/route.ts] diagramId: ${diagramId}`);
 
     if (!scenario || typeof scenario !== "string") {
@@ -30,7 +30,7 @@ export async function POST(request: Request) {
     }
 
     // 1. Generate Embedding for Semantic Caching
-    const vector = await generateEmbedding(scenario);
+    const vector = await generateEmbedding(scenario, apiKeys);
 
     // 2. Query Upstash Vector for similar scenarios
     try {
@@ -79,6 +79,7 @@ export async function POST(request: Request) {
     // The LangGraph agent runs its cycles and returns the final state
     const result = await erArchitectAgent.invoke(initialState, {
       runName: diagramId,
+      configurable: { apiKeys }
     });
 
     // If it hit circuit breaker and failed, the valid states will be false or null
