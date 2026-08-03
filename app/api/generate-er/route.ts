@@ -12,19 +12,21 @@ const generateEmbedding = async (text: string, keys?: { gemini?: string }) => {
   });
 
   let vector = await embeddings.embedQuery(text);
-  
+
   // Truncate to 1536 dimensions to match OpenAI's default & your Upstash Index
   // (Gemini text-embedding-004 outputs 3072 dims natively)
   if (vector.length > 1536) {
     vector = vector.slice(0, 1536);
-    
+
     // L2 normalize the truncated vector for cosine similarity
-    const magnitude = Math.sqrt(vector.reduce((sum, val) => sum + val * val, 0));
+    const magnitude = Math.sqrt(
+      vector.reduce((sum, val) => sum + val * val, 0),
+    );
     if (magnitude > 0) {
-      vector = vector.map(val => val / magnitude);
+      vector = vector.map((val) => val / magnitude);
     }
   }
-  
+
   return vector;
 };
 
@@ -35,7 +37,9 @@ export async function POST(request: Request) {
   try {
     const { scenario, diagramId, apiKeys } = await request.json();
     console.log(`[api/generate-er/route.ts] diagramId: ${diagramId}`);
-    console.log(`[api/generate-er/route.ts] apiKeys: ${JSON.stringify(apiKeys)}`);
+    console.log(
+      `[api/generate-er/route.ts] apiKeys: ${JSON.stringify(apiKeys)}`,
+    );
 
     if (!scenario || typeof scenario !== "string") {
       return NextResponse.json(
