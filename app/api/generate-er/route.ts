@@ -11,7 +11,21 @@ const generateEmbedding = async (text: string, keys?: { gemini?: string }) => {
     apiKey: keys?.gemini || process.env.GEMINI_API_KEY,
   });
 
-  return await embeddings.embedQuery(text);
+  let vector = await embeddings.embedQuery(text);
+  
+  // Truncate to 1536 dimensions to match OpenAI's default & your Upstash Index
+  // (Gemini text-embedding-004 outputs 3072 dims natively)
+  if (vector.length > 1536) {
+    vector = vector.slice(0, 1536);
+    
+    // L2 normalize the truncated vector for cosine similarity
+    const magnitude = Math.sqrt(vector.reduce((sum, val) => sum + val * val, 0));
+    if (magnitude > 0) {
+      vector = vector.map(val => val / magnitude);
+    }
+  }
+  
+  return vector;
 };
 
 // Initialize Upstash Vector Index
@@ -30,12 +44,17 @@ export async function POST(request: Request) {
     }
 
     // 1. Generate Embedding for Semantic Caching
-    const vector = await generateEmbedding(scenario, apiKeys);
+    let vector: number[] = [];
+    try {
+      vector = await generateEmbedding(scenario, apiKeys);
+    } catch (error) {
+      console.log("error generation vector:", error);
+    }
 
     // 2. Query Upstash Vector for similar scenarios
     try {
       const queryResult = await index.query({
-        vector,
+        vector: vector,
         topK: 1,
         includeMetadata: true,
       });
@@ -79,7 +98,7 @@ export async function POST(request: Request) {
     // The LangGraph agent runs its cycles and returns the final state
     const result = await erArchitectAgent.invoke(initialState, {
       runName: diagramId,
-      configurable: { apiKeys }
+      configurable: { apiKeys },
     });
 
     // If it hit circuit breaker and failed, the valid states will be false or null

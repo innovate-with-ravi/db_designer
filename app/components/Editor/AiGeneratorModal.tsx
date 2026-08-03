@@ -93,7 +93,7 @@ export default function AiGeneratorModal({ isOpen, onClose }: { isOpen: boolean,
     if (!isOpen) return null;
 
     return (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 sm:p-6 animate-in fade-in duration-200">
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 sm:p-6 animate-in fade-in duration-200 overflow-auto">
             <div className="bg-background border border-border w-full max-w-4xl rounded-2xl shadow-2xl overflow-hidden flex flex-col ring-1 ring-white/10">
                 <div className="px-6 py-4 border-b border-border flex items-center justify-between bg-surface/50">
                     <div className="flex items-center gap-3">
