@@ -12,8 +12,8 @@ generator client {
 }
 
 datasource db {
-  provider = "mysql" // for localhost
-  // provider = "postgresql" // for cloud
+  // provider = "mysql" // for localhost
+  provider = "postgresql" // for cloud
 }
 
 // 1. Users Table (Upgraded for NextAuth)
