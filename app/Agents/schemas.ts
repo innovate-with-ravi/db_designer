@@ -27,7 +27,7 @@ export const AgentEntitySchemaBase = z.object({
 export const AgentRelationshipSchemaBase = z.object({
   sourceEntity: z.string().describe("Name of the source/parent entity (must exactly match an entity name)"),
   targetEntity: z.string().describe("Name of the target/child entity (must exactly match an entity name)"),
-  label: z.string().describe("Verb describing the relationship, e.g., TEACHES, ENROLLS"),
+  label: z.string().describe("One word verb describing the relationship between the source and target entities, e.g., TEACHES, ENROLLS"),
   maxCardinality: z.string().describe("The maximum cardinality of the relationship (e.g., '1:1', '1:N', 'M:N', 'M:1')"),
   minCardinality: z.string().describe("The minimum cardinality of the relationship (0 for optional, 1 for mandatory). Example: '0:1', '1:1', '0:0'. DO NOT use 'N' or 'M'."),
 });
