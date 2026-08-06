@@ -460,5 +460,23 @@ export const generateLayout = async (
     });
   });
 
-  return { nodes: initialNodes, edges: initialEdges, relationshipAttributes: jsonSchema.relationshipAttributes || [] };
+  // --- PHASE 6: Flatten to Absolute Coordinates & Remove Parent Boxes ---
+  const finalNodes = initialNodes
+    .map((node) => {
+      if (node.parentId) {
+        const parent = initialNodes.find((n) => n.id === node.parentId);
+        if (parent) {
+          node.position = {
+            x: parent.position.x + node.position.x,
+            y: parent.position.y + node.position.y,
+          };
+        }
+        delete node.parentId;
+        delete node.extent;
+      }
+      return node;
+    })
+    .filter((node) => node.type !== "invisibleBox");
+
+  return { nodes: finalNodes, edges: initialEdges, relationshipAttributes: jsonSchema.relationshipAttributes || [] };
 };
