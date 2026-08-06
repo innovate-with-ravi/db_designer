@@ -23,11 +23,17 @@ import { SQL_RESERVED_WORDS } from "@/lib/schema";
  * @param state - The current state of the LangGraph agent
  * @returns Partial state update containing the generated jsonSchema or null on failure
  */
-const generateNode = async (state: typeof AgentState.State, config?: RunnableConfig) => {
+const generateNode = async (
+  state: typeof AgentState.State,
+  config?: RunnableConfig,
+) => {
   console.log(`[generateNode] Generating ER diagram...`);
-  
+
   const apiKeys = config?.configurable?.apiKeys;
-  const structuredLlm = getResilientStructuredModel(AgentDiagramSchemaBase, apiKeys);
+  const structuredLlm = getResilientStructuredModel(
+    AgentDiagramSchemaBase,
+    apiKeys,
+  );
 
   const prompt = `You are an expert Data Architect.
 Your task is to design a pure conceptual Entity-Relationship (ER) diagram based on Chen's Database Notation for the following scenario: 
@@ -64,7 +70,7 @@ Return your assessment matching the requested JSON schema perfectly.`;
   } catch (error: any) {
     console.error(`[Error] generateNode LLM failure:`, error.message);
     // Return null schema. The schemaCritic will catch this and log the failure.
-    return { jsonSchema: null };
+    return { jsonSchema: null, schemaErrors: [error.message] };
   }
 };
 
@@ -84,7 +90,7 @@ const schemaCriticNode = async (state: typeof AgentState.State) => {
 
   if (!rawSchema) {
     return {
-      schemaErrors: ["Schema generation failed. The LLM returned null."],
+      schemaErrors: state.schemaErrors.length > 0 ? state.schemaErrors : ["Schema generation failed. The LLM returned null."],
       isSchemaValid: false,
       schemaFixRetries: state.schemaFixRetries + 1,
     };
@@ -209,7 +215,10 @@ const routeAfterschemaCritic = (state: typeof AgentState.State) => {
  * @param state - The current state containing the flawed jsonSchema and schemaErrors
  * @returns Partial state update with the fixed jsonSchema
  */
-const schemaFixerNode = async (state: typeof AgentState.State, config?: RunnableConfig) => {
+const schemaFixerNode = async (
+  state: typeof AgentState.State,
+  config?: RunnableConfig,
+) => {
   console.log(
     `[schemaFixerNode] Fixing JSON Schema errors (Attempt ${state.schemaFixRetries + 1}/3)...`,
   );
@@ -220,7 +229,10 @@ const schemaFixerNode = async (state: typeof AgentState.State, config?: Runnable
   }
 
   const apiKeys = config?.configurable?.apiKeys;
-  const structuredLlm = getResilientStructuredModel(AgentDiagramSchemaBase, apiKeys);
+  const structuredLlm = getResilientStructuredModel(
+    AgentDiagramSchemaBase,
+    apiKeys,
+  );
 
   const prompt = `You are an expert Database Architect and Schema Fixer.
 The following JSON ER diagram schema contains logical errors or uses SQL reserved keywords.
@@ -337,7 +349,10 @@ const adaptSchemaForV1 = traceable(
  * @param state - The current state containing the validated jsonSchema and chosen dialect
  * @returns Partial state update with the generatedSql and any scriptErrors
  */
-const compilerNode = async (state: typeof AgentState.State, config: RunnableConfig) => {
+const compilerNode = async (
+  state: typeof AgentState.State,
+  config: RunnableConfig,
+) => {
   console.log(`[compilerNode] Compiling jsonSchema into v-1 script`);
 
   const schema = state.jsonSchema;
@@ -359,13 +374,17 @@ const compilerNode = async (state: typeof AgentState.State, config: RunnableConf
     let finalScript = ``;
 
     if (state.dialect === "prisma")
-      finalScript = generatePrisma(compiledEntities, edges, schema.relationshipAttributes || []);
+      finalScript = generatePrisma(
+        compiledEntities,
+        edges,
+        schema.relationshipAttributes || [],
+      );
     else
       finalScript = generateSQL(
         compiledEntities,
         edges,
         state.dialect || "mysql",
-        schema.relationshipAttributes || []
+        schema.relationshipAttributes || [],
       );
 
     return {
@@ -393,7 +412,7 @@ const compilerNode = async (state: typeof AgentState.State, config: RunnableConf
  */
 const semanticRefinerNode = async (
   state: typeof AgentState.State,
-  config?: RunnableConfig
+  config?: RunnableConfig,
 ): Promise<Partial<typeof AgentState.State>> => {
   console.log(`[semanticRefinerNode] Refining compiled SQL script...`);
 
@@ -404,7 +423,7 @@ const semanticRefinerNode = async (
       ],
     };
   }
-  
+
   const apiKeys = config?.configurable?.apiKeys;
   const resilientModel = getResilientModel(apiKeys);
 
@@ -466,7 +485,7 @@ ${state.generatedSql}
  */
 const scriptCriticNode = async (
   state: typeof AgentState.State,
-  config?: RunnableConfig
+  config?: RunnableConfig,
 ): Promise<Partial<typeof AgentState.State>> => {
   console.log(
     `[scriptCriticNode] Validating SQL execution order and syntax...`,
@@ -476,7 +495,7 @@ const scriptCriticNode = async (
   if (!state.generatedSql) {
     return {
       isScriptValid: false,
-      scriptErrors: ["No SQL script generated."],
+      scriptErrors: state.scriptErrors.length > 0 ? state.scriptErrors : ["No SQL script generated."],
       scriptFixRetries: state.scriptFixRetries + 1,
     };
   }
@@ -489,7 +508,10 @@ const scriptCriticNode = async (
   }
 
   const apiKeys = config?.configurable?.apiKeys;
-  const criticLlm = getResilientStructuredModel(ScriptValidationSchema, apiKeys);
+  const criticLlm = getResilientStructuredModel(
+    ScriptValidationSchema,
+    apiKeys,
+  );
 
   const prompt = `You are a strict Database Architect and Code Reviewer. 
 Review the following ${state.dialect || "SQL"} script meticulously for structural and logical errors.
@@ -573,7 +595,7 @@ const routeAfterScriptCritic = (state: typeof AgentState.State) => {
  */
 const scriptFixerNode = async (
   state: typeof AgentState.State,
-  config?: RunnableConfig
+  config?: RunnableConfig,
 ): Promise<Partial<typeof AgentState.State>> => {
   console.log(
     `[scriptFixerNode] Fixing compiled SQL script based on criticNode's feedback (Attempt ${state.scriptFixRetries + 1}/3)...`,
@@ -583,7 +605,7 @@ const scriptFixerNode = async (
   if (!state.generatedSql || state.scriptErrors.length === 0) {
     return {};
   }
-  
+
   const apiKeys = config?.configurable?.apiKeys;
   const resilientModel = getResilientModel(apiKeys);
 

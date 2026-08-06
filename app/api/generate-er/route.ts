@@ -109,7 +109,9 @@ export async function POST(request: Request) {
     // If it hit circuit breaker and failed, the valid states will be false or null
     if (!result.jsonSchema) {
       return NextResponse.json(
-        { error: "Failed to generate 'ER diagram schema' from the AI." },
+        {
+          error: `Failed to generate 'ER diagram schema' from the AI.\n${result.schemaErrors?.join("\n") || ""}`,
+        },
         { status: 500 },
       );
     }

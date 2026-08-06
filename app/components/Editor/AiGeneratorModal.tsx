@@ -145,7 +145,7 @@ export default function AiGeneratorModal({ isOpen, onClose }: { isOpen: boolean,
                         
                         {showApiKeys && (
                             <div className="p-4 border-t border-border flex flex-col gap-3 bg-surface/10 animate-in slide-in-from-top-2">
-                                <p className="text-xs text-muted-foreground mb-1">
+                                <p className="text-md text-green-500 mb-1">
                                     By default, this tool uses the platform's API keys which may run out of quota. Add your own keys to bypass limits. Keys are saved securely in your browser.
                                 </p>
                                 
