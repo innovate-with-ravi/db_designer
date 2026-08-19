@@ -20,7 +20,7 @@ const createModels = (keys?: UserApiKeys) => {
   });
 
   const geminiModel = new ChatGoogleGenerativeAI({
-    model: "antigravity-preview-05-2026",
+    model: "gemini-2.5-flash",
     apiKey: keys?.gemini || process.env.GEMINI_API_KEY,
     temperature: 0,
     maxRetries: 0,
