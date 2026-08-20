@@ -249,12 +249,12 @@ export default function RelationshipEdge({ id, source, target, sourceX, sourceY,
                             <div className="-rotate-45 flex items-center justify-center w-full h-full px-1 overflow-hidden">
                                 {!isEditing ? (
                                     <p className="w-full text-sm font-bold text-foreground text-center leading-tight line-clamp-2 wrap-break-word hyphens-auto overflow-hidden whitespace-normal">
-                                        {label || 'REL'}
+                                        {label ?? 'REL'}
                                     </p>
                                 ) : (
                                     <input className="w-full h-full text-[10px] font-bold text-center outline-none bg-transparent text-foreground"
                                         type="text" autoFocus
-                                        value={label as string || 'REL'}
+                                        value={label as string ?? ''}
                                         onChange={(e) => { setLabel(e.target.value.toLocaleUpperCase()) }}
                                         onBlur={(e) => updateEdgeData(id, { label })}
                                     />
