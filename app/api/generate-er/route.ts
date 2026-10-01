@@ -101,10 +101,21 @@ export async function POST(request: Request) {
     };
 
     // The LangGraph agent runs its cycles and returns the final state
-    const result = await erArchitectAgent.invoke(initialState, {
-      runName: diagramId,
-      configurable: { apiKeys },
-    });
+    const config = {
+      configurable: {
+        thread_id: diagramId,
+        apiKeys// user's apiKeys
+      },
+      metadata: {
+        user_id: '1234',
+        user_name: "ravi_bhawsar",
+        thread_id: diagramId,
+        diagramId,
+        diagramName: "",
+      },
+      runName: String(diagramId) + "1",// diagramId+cntOfGeneration
+    }
+    const result = await erArchitectAgent.invoke(initialState, config);
 
     // If it hit circuit breaker and failed, the valid states will be false or null
     if (!result.jsonSchema) {
