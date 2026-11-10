@@ -48,3 +48,10 @@ next-env.d.ts
 /ownUseData
 # LangGraph API
 .langgraph_api
+
+
+# agents
+.agents/
+
+# graphify
+graphify-out/
