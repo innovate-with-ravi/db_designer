@@ -3,7 +3,7 @@
 > **The First Fully Automated Entity-Relationship (ER) & Relational Compiler built on Chen Notation.**  
 > Describe your system requirements in plain English, and our AI Architect instantly designs the conceptual ER diagram, computes the spatial layout, and compiles semantically refined SQL & Prisma schemas.
 
-<video src="assets/demo.mp4" autoplay loop muted playsinline width="100%"></video>
+![DB Designer Demo](assets/demo.gif)
 
 ---
 
